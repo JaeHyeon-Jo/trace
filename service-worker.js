@@ -1,4 +1,4 @@
-const CACHE = 'trace-v1';
+const CACHE = 'trace-v2';
 const ASSETS = [
   './',
   './index.html',
@@ -21,16 +21,20 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
+// Stale-while-revalidate: serve cached immediately, refresh cache in background.
+// Future deploys propagate on the next visit without manual cache busting.
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   event.respondWith(
-    caches.match(event.request).then((cached) => {
-      if (cached) return cached;
-      return fetch(event.request).then((response) => {
-        const copy = response.clone();
-        caches.open(CACHE).then((cache) => cache.put(event.request, copy)).catch(() => {});
-        return response;
-      }).catch(() => cached);
+    caches.open(CACHE).then(async (cache) => {
+      const cached = await cache.match(event.request);
+      const network = fetch(event.request)
+        .then((response) => {
+          if (response && response.ok) cache.put(event.request, response.clone());
+          return response;
+        })
+        .catch(() => cached);
+      return cached || network;
     })
   );
 });
