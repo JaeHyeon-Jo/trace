@@ -4,3 +4,11 @@
 *.swp
 *.swo
 Thumbs.db
+
+# Per-device Firebase web config (copy from firebase-config.example.js)
+firebase-config.js
+
+# Firebase CLI artifacts
+.firebase/
+firebase-debug.log
+firebase-debug.*.log

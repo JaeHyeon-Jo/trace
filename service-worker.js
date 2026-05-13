@@ -1,10 +1,22 @@
-const CACHE = 'trace-v2';
+const CACHE = 'dday-v1';
 const ASSETS = [
   './',
   './index.html',
   './manifest.webmanifest',
   './icon.svg',
   'https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js',
+];
+
+// sync.js and firebase-config.js are intentionally not preloaded — they are
+// optional. If present they get cached on first fetch (stale-while-revalidate);
+// if absent the app still installs cleanly.
+
+// Firebase realtime endpoints must hit the network — never serve from cache.
+const FIREBASE_HOSTS = [
+  'firestore.googleapis.com',
+  'identitytoolkit.googleapis.com',
+  'securetoken.googleapis.com',
+  'firebaseinstallations.googleapis.com',
 ];
 
 self.addEventListener('install', (event) => {
@@ -25,6 +37,8 @@ self.addEventListener('activate', (event) => {
 // Future deploys propagate on the next visit without manual cache busting.
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
+  const url = new URL(event.request.url);
+  if (FIREBASE_HOSTS.some((host) => url.hostname.endsWith(host))) return;
   event.respondWith(
     caches.open(CACHE).then(async (cache) => {
       const cached = await cache.match(event.request);

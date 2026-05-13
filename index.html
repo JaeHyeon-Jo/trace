@@ -4,8 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
     <meta name="theme-color" content="#5c67f2">
-    <meta name="description" content="마지막에 한 날짜를 기록하고, 다음 주기까지 남은 시간을 확인하는 가벼운 트래커.">
-    <title>Trace — 지나간 시간 기록</title>
+    <meta name="description" content="마지막에 한 날짜를 기록하고, 며칠 지났는지·다음 주기까지 남은 시간을 확인하는 가벼운 트래커.">
+    <title>D+Day — 지나간 시간 기록</title>
     <link rel="icon" href="icon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="icon.svg">
     <link rel="manifest" href="manifest.webmanifest">
@@ -48,6 +48,10 @@
         .overdue { color: #e74c3c; }
         .help-btn { background: #3498db; padding: 8px 12px; font-size: 0.9em; position: fixed; top: 20px; right: 20px; z-index: 100; }
         .help-btn:hover { background: #2980b9; }
+        .auth-bar { position: fixed; top: 20px; left: 20px; z-index: 100; display: flex; align-items: center; gap: 6px; }
+        .auth-btn { background: #2c3e50; padding: 8px 12px; font-size: 0.9em; }
+        .auth-btn:hover { background: #1a252f; }
+        .sync-status { font-size: 1em; min-width: 1.2em; text-align: center; }
         .modal { display: none; position: fixed; z-index: 200; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); }
         .modal.show { display: block; }
         .modal-content { background-color: white; margin: 5% auto; padding: 25px; border-radius: 8px; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
@@ -83,13 +87,20 @@
             .item > div:last-child { text-align: left !important; width: 100%; }
             .sort-group { gap: 16px; flex-wrap: wrap; }
             .help-btn { top: 12px; right: 12px; }
+            .auth-bar { top: 12px; left: 12px; }
+            .auth-btn { padding: 6px 10px; font-size: 0.8em; }
             .modal-content { margin: 16px auto; width: calc(100% - 24px); padding: 18px; }
         }
     </style>
 </head>
 <body>
 
-<h2>⏳ 지나간 시간 기록</h2>
+<h2>⏳ D+Day — 지나간 시간 기록</h2>
+
+<div class="auth-bar">
+    <button id="authBtn" class="auth-btn" onclick="handleAuthClick()">🔐 로그인</button>
+    <span id="syncStatus" class="sync-status" aria-live="polite"></span>
+</div>
 
 <button class="help-btn" onclick="openHelp()">❓ 도움말</button>
 
@@ -137,8 +148,18 @@
         </div>
 
         <div class="help-section">
+            <h3>☁️ 기기간 동기화</h3>
+            <p>좌측 상단 <strong>🔐 로그인</strong> 버튼으로 Google 계정에 로그인하면 여러 기기에서 자동으로 동기화됩니다. 비로그인 상태에서는 이 브라우저에만 저장됩니다.</p>
+            <ul>
+                <li><strong>충돌 해결:</strong> 같은 항목을 여러 기기에서 수정한 경우, 가장 최근 수정이 적용됩니다 (last-write-wins).</li>
+                <li><strong>오프라인:</strong> 인터넷이 끊겨도 정상 동작하며, 온라인 복귀 시 자동 푸시됩니다.</li>
+                <li><strong>최초 설정:</strong> 동기화 기능은 호스팅하는 사람이 Firebase 프로젝트를 연결해야 활성화됩니다. (README 참고)</li>
+            </ul>
+        </div>
+
+        <div class="help-section">
             <h3>💾 백업 / 복원</h3>
-            <p>데이터는 이 브라우저의 localStorage 에만 저장됩니다. 다른 기기로 옮기거나 안전하게 보관하려면 JSON 으로 내보내세요.</p>
+            <p>JSON 으로 내보내 별도 보관하거나, 다른 기기로 옮길 수 있습니다.</p>
             <div class="backup-actions">
                 <button onclick="exportData()">📥 내보내기 (JSON)</button>
                 <button class="import" onclick="document.getElementById('importFile').click()">📤 가져오기</button>
@@ -176,34 +197,86 @@
 <div class="sort-group">
     <div>
         <span>지난일 기준</span>
-        <button class="sort-btn sort-triangle" onclick="setSortOrder('elapsed', 'asc')">▲</button>
-        <button class="sort-btn sort-triangle" onclick="setSortOrder('elapsed', 'desc')">▼</button>
+        <button class="sort-btn sort-triangle" onclick="setSortOrder('elapsed', 'asc', event)">▲</button>
+        <button class="sort-btn sort-triangle" onclick="setSortOrder('elapsed', 'desc', event)">▼</button>
     </div>
     <div>
         <span>남은일자 기준</span>
-        <button class="sort-btn sort-triangle" onclick="setSortOrder('remaining', 'asc')">▲</button>
-        <button class="sort-btn sort-triangle" onclick="setSortOrder('remaining', 'desc')">▼</button>
+        <button class="sort-btn sort-triangle" onclick="setSortOrder('remaining', 'asc', event)">▲</button>
+        <button class="sort-btn sort-triangle" onclick="setSortOrder('remaining', 'desc', event)">▼</button>
     </div>
 </div>
 
 <div id="list"></div>
 
-<script>
+<script type="module">
+    // Cross-device sync (Firebase) is loaded lazily: if firebase-config.js is
+    // missing, the app gracefully falls back to localStorage-only mode.
+    let sync = null;
+    try {
+        sync = await import('./sync.js');
+    } catch (e) {
+        console.warn('Sync disabled (firebase-config.js missing or invalid):', e.message);
+    }
+
     // 데이터 불러오기
     let activities = JSON.parse(localStorage.getItem('myActivities')) || [];
     let sortSettings = JSON.parse(localStorage.getItem('sortSettings')) || { type: 'elapsed', order: 'desc' };
     let sortType = sortSettings.type;
     let sortOrder = sortSettings.order;
 
-    function setSortOrder(type, order) {
+    // Schema migration: assign id + updatedAt to legacy entries
+    (function migrate() {
+        let changed = false;
+        const now = new Date().toISOString();
+        activities = activities.map(a => {
+            const out = { ...a };
+            if (!out.id) { out.id = crypto.randomUUID(); changed = true; }
+            if (!out.updatedAt) { out.updatedAt = now; changed = true; }
+            return out;
+        });
+        if (changed) localStorage.setItem('myActivities', JSON.stringify(activities));
+    })();
+
+    let currentUser = null;
+    let unsubscribeCloud = null;
+    let pushDebounce = null;
+
+    function setSyncStatus(state) {
+        const el = document.getElementById('syncStatus');
+        if (!el) return;
+        const map = { offline: '', syncing: '🔄', synced: '✅', error: '⚠️' };
+        el.textContent = map[state] || '';
+        el.title = { offline: '로컬 전용', syncing: '동기화 중', synced: '동기화됨', error: '동기화 실패' }[state] || '';
+    }
+
+    function saveActivities({ skipPush = false } = {}) {
+        localStorage.setItem('myActivities', JSON.stringify(activities));
+        if (!sync || !currentUser || skipPush) return;
+        setSyncStatus('syncing');
+        clearTimeout(pushDebounce);
+        pushDebounce = setTimeout(() => {
+            sync.pushToCloud(currentUser.uid, activities)
+                .then(() => setSyncStatus('synced'))
+                .catch((err) => { console.error('cloud push failed', err); setSyncStatus('error'); });
+        }, 300);
+    }
+
+    function visibleActivities() {
+        return activities.filter(a => !a.deletedAt);
+    }
+
+    function touch(activity) {
+        activity.updatedAt = new Date().toISOString();
+    }
+
+    function setSortOrder(type, order, evt) {
         sortType = type;
         sortOrder = order;
         localStorage.setItem('sortSettings', JSON.stringify({ type: sortType, order: sortOrder }));
-        // 버튼 활성화 상태 업데이트
-        document.querySelectorAll('.sort-btn').forEach(btn => {
-            btn.classList.remove('active');
-        });
-        event.target.classList.add('active');
+        document.querySelectorAll('.sort-btn').forEach(btn => btn.classList.remove('active'));
+        const target = (evt && evt.target) || (typeof event !== 'undefined' && event.target);
+        if (target) target.classList.add('active');
         render();
     }
 
@@ -252,8 +325,8 @@
         listDiv.innerHTML = '';
         const today = new Date();
 
-        // 정렬 로직
-        let sortedActivities = [...activities];
+        // 정렬 로직 (삭제 tombstone 제외)
+        let sortedActivities = visibleActivities();
         if (sortType === 'elapsed') {
             // 지난일 기준
             sortedActivities.sort((a, b) => {
@@ -275,10 +348,7 @@
         }
 
         sortedActivities.forEach((item, index) => {
-            // 원본 배열에서의 인덱스 찾기
-            const originalIndex = activities.findIndex(a =>
-                a.name === item.name && a.lastDate === item.lastDate && a.history === item.history
-            );
+            const itemId = item.id;
 
             const taskDate = new Date(item.lastDate);
             const diffTime = today - taskDate;
@@ -326,7 +396,7 @@
                 : '<div class="history-item">기록 없음</div>';
 
             // 그래프용 고유 ID 생성
-            const chartId = `chart-${index}-${Math.random().toString(36).substr(2, 9)}`;
+            const chartId = `chart-${itemId}`;
 
             listDiv.innerHTML += `
                 <div class="item" style="--progress: ${progressPercent}%;">
@@ -334,8 +404,8 @@
                         <strong>${item.name}</strong>
                         <span class="date-label">${item.lastDate} 로부터</span>
                         ${item.cycleNum && item.cycleUnit ? '<span class="date-label">주기: ' + formatCycleDisplay(item.cycleNum, item.cycleUnit) + '</span>' : ''}
-                        <span class="history-toggle-btn" onclick="toggleHistory(${index})">${item.history && item.history.length > 1 ? '📊 히스토리 그래프 (' + item.history.length + '회)' : '히스토리 없음'}</span>
-                        <div class="history-graph" id="history-${index}">
+                        <span class="history-toggle-btn" onclick="toggleHistory('${itemId}')">${item.history && item.history.length > 1 ? '📊 히스토리 그래프 (' + item.history.length + '회)' : '히스토리 없음'}</span>
+                        <div class="history-graph" id="history-${itemId}">
                             ${item.history && item.history.length > 1 ? `<div class="graph-container"><canvas id="${chartId}"></canvas></div>` : ''}
                             ${historyHtml}
                         </div>
@@ -344,8 +414,8 @@
                         <span class="days">${daysDisplay}</span>
                         ${cycleDisplay}
                         <br>
-                        <button class="refresh-btn" onclick="refreshItem(${originalIndex})">리프레시</button>
-                        <button class="delete-btn" onclick="deleteItem(${originalIndex})">삭제</button>
+                        <button class="refresh-btn" onclick="refreshItem('${itemId}')">리프레시</button>
+                        <button class="delete-btn" onclick="deleteItem('${itemId}')">삭제</button>
                     </div>
                 </div>
             `;
@@ -357,7 +427,6 @@
                 }, 0);
             }
         });
-        localStorage.setItem('myActivities', JSON.stringify(activities));
     }
 
     function addItem() {
@@ -368,18 +437,20 @@
 
         if (name && date) {
             const newItem = {
+                id: crypto.randomUUID(),
                 name,
                 lastDate: date,
-                history: [date]
+                history: [date],
+                updatedAt: new Date().toISOString(),
             };
 
-            // 주기가 모두 입력되면 저장
             if (cycleNum && cycleUnit) {
                 newItem.cycleNum = parseInt(cycleNum);
                 newItem.cycleUnit = cycleUnit;
             }
 
             activities.push(newItem);
+            saveActivities();
             render();
             document.getElementById('taskName').value = '';
             document.getElementById('cycleNum').value = '';
@@ -394,21 +465,23 @@
         document.getElementById('cycleUnit').value = '';
     }
 
-    function refreshItem(index) {
+    function refreshItem(id) {
+        const item = activities.find(a => a.id === id);
+        if (!item) return;
         const today = new Date().toISOString().substring(0, 10);
-        if(confirm(`${activities[index].name}을(를) ${today}로 리프레시하시겠습니까?`)) {
-            activities[index].lastDate = today;
-            if (!activities[index].history) {
-                activities[index].history = [];
-            }
-            activities[index].history.push(today);
+        if (confirm(`${item.name}을(를) ${today}로 리프레시하시겠습니까?`)) {
+            item.lastDate = today;
+            if (!item.history) item.history = [];
+            item.history.push(today);
+            touch(item);
+            saveActivities();
             render();
         }
     }
 
-    function toggleHistory(index) {
-        const historyDiv = document.getElementById(`history-${index}`);
-        historyDiv.classList.toggle('show');
+    function toggleHistory(id) {
+        const historyDiv = document.getElementById(`history-${id}`);
+        if (historyDiv) historyDiv.classList.toggle('show');
     }
 
     function createHistoryGraph(chartId, history, cycleNum, cycleUnit) {
@@ -538,16 +611,22 @@
         });
     }
 
-    function deleteItem(index) {
-        if(confirm("정말 삭제하시겠습니까?")) {
-            activities.splice(index, 1);
+    function deleteItem(id) {
+        const item = activities.find(a => a.id === id);
+        if (!item) return;
+        if (confirm("정말 삭제하시겠습니까?")) {
+            // Tombstone: keep the row with deletedAt so deletion syncs to other
+            // devices instead of being resurrected by a remote snapshot.
+            item.deletedAt = new Date().toISOString();
+            touch(item);
+            saveActivities();
             render();
         }
     }
 
     function exportData() {
         const payload = {
-            app: 'trace',
+            app: 'dday',
             version: 1,
             exportedAt: new Date().toISOString(),
             activities: JSON.parse(localStorage.getItem('myActivities') || '[]'),
@@ -557,7 +636,7 @@
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = `trace-backup-${new Date().toISOString().slice(0, 10)}.json`;
+        a.download = `dday-backup-${new Date().toISOString().slice(0, 10)}.json`;
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -580,8 +659,13 @@
                 );
                 if (!valid) throw new Error('항목 형식이 올바르지 않습니다.');
                 if (!confirm(`${incoming.length}개 항목을 가져옵니다. 현재 데이터를 덮어쓸까요?`)) return;
-                activities = incoming;
-                localStorage.setItem('myActivities', JSON.stringify(activities));
+                const now = new Date().toISOString();
+                activities = incoming.map(a => ({
+                    ...a,
+                    id: a.id || crypto.randomUUID(),
+                    updatedAt: a.updatedAt || now,
+                }));
+                saveActivities();
                 if (data.sortSettings) {
                     localStorage.setItem('sortSettings', JSON.stringify(data.sortSettings));
                     sortType = data.sortSettings.type;
@@ -617,6 +701,91 @@
     });
 
     render();
+
+    // Inline onclick handlers in the HTML need globals; module scope is not.
+    Object.assign(window, {
+        setSortOrder, openHelp, closeHelp, toggleHistory,
+        addItem, clearCycle, refreshItem, deleteItem,
+        exportData, importData, handleAuthClick,
+    });
+
+    // --- Auth + cloud sync wiring ---
+
+    function updateAuthUI() {
+        const btn = document.getElementById('authBtn');
+        if (!btn) return;
+        if (currentUser) {
+            const name = currentUser.displayName || currentUser.email || '계정';
+            btn.textContent = `👤 ${name.split(' ')[0]} · 로그아웃`;
+            btn.title = `${name} (클릭 시 로그아웃)`;
+        } else {
+            btn.textContent = sync ? '🔐 로그인' : '🔐 동기화 미설정';
+            btn.title = sync ? 'Google 계정으로 로그인해 기기 간 동기화' : 'firebase-config.js 를 만들어야 동기화가 활성화됩니다';
+        }
+    }
+
+    async function handleAuthClick() {
+        if (!sync) {
+            alert('Firebase 설정이 없습니다. README 의 "기기간 동기화 설정" 섹션을 참고하세요.');
+            return;
+        }
+        try {
+            if (currentUser) {
+                await sync.logout();
+                return;
+            }
+            // loginWithGoogle handles popup-blocked by falling back to redirect.
+            // When it falls back the page navigates away; we won't reach the next line.
+            await sync.loginWithGoogle();
+        } catch (err) {
+            console.error('auth failed', err);
+            const code = err.code || '';
+            if (code === 'auth/unauthorized-domain') {
+                alert('이 도메인은 Firebase 에 등록되어 있지 않습니다.\nFirebase Console → Authentication → Settings → Authorized domains 에 현재 도메인을 추가하세요.');
+            } else {
+                alert('로그인/로그아웃 실패: ' + (err.message || code));
+            }
+        }
+    }
+
+    function applyRemoteSnapshot(remote) {
+        // LWW merge: remote wins per-id when its updatedAt is newer.
+        const merged = sync.mergeLWW(activities, remote);
+        const before = JSON.stringify(activities);
+        activities = merged;
+        const after = JSON.stringify(activities);
+        if (before !== after) {
+            // skipPush: this change came FROM the cloud — pushing it back is wasted work.
+            saveActivities({ skipPush: true });
+            render();
+        }
+        setSyncStatus('synced');
+    }
+
+    if (sync) {
+        // After a redirect-based login the page reboots here; surface any error.
+        sync.consumeRedirectResult();
+        sync.watchAuth((user) => {
+            currentUser = user || null;
+            updateAuthUI();
+            if (unsubscribeCloud) { unsubscribeCloud(); unsubscribeCloud = null; }
+            if (user) {
+                setSyncStatus('syncing');
+                // First, push whatever we have locally so the cloud has a baseline.
+                // Then subscribe — incoming snapshots will merge LWW.
+                sync.pushToCloud(user.uid, activities)
+                    .catch((e) => console.warn('initial push failed', e))
+                    .finally(() => {
+                        unsubscribeCloud = sync.subscribeToCloud(user.uid, applyRemoteSnapshot);
+                    });
+            } else {
+                setSyncStatus('offline');
+            }
+        });
+    } else {
+        setSyncStatus('offline');
+        updateAuthUI();
+    }
 
     if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {

@@ -1,7 +1,7 @@
 {
-  "name": "Trace — 지나간 시간 기록",
-  "short_name": "Trace",
-  "description": "마지막에 한 날짜를 기록하고, 다음 주기까지 남은 시간을 확인하는 트래커.",
+  "name": "D+Day — 지나간 시간 기록",
+  "short_name": "D+Day",
+  "description": "마지막에 한 날짜를 기록하고, 며칠 지났는지·다음 주기까지 남은 시간을 확인하는 트래커.",
   "lang": "ko",
   "start_url": "./",
   "scope": "./",
