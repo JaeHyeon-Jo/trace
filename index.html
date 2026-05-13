@@ -9,87 +9,465 @@
     <link rel="icon" href="icon.svg" type="image/svg+xml">
     <link rel="apple-touch-icon" href="icon.svg">
     <link rel="manifest" href="manifest.webmanifest">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <style>
+        /* ---------- Linear-inspired design tokens (light) ---------- */
+        :root {
+            /* Surface ladder (light) */
+            --canvas: #ffffff;
+            --surface-1: #fafbfc;
+            --surface-2: #f4f5f7;
+            --surface-3: #ebedf0;
+
+            /* Hairlines */
+            --hairline: #e6e8eb;
+            --hairline-strong: #d0d4d9;
+
+            /* Ink (text) */
+            --ink: #0e0f11;
+            --ink-muted: #3c4043;
+            --ink-subtle: #62666d;
+            --ink-tertiary: #8a8f98;
+
+            /* Brand */
+            --primary: #5e6ad2;
+            --primary-hover: #828fff;
+            --primary-focus: #5e69d1;
+            --on-primary: #ffffff;
+
+            /* Semantic */
+            --success: #27a644;
+            --danger: #e5484d;
+
+            /* Spacing scale */
+            --space-xxs: 4px;
+            --space-xs: 8px;
+            --space-sm: 12px;
+            --space-md: 16px;
+            --space-lg: 24px;
+            --space-xl: 32px;
+            --space-xxl: 48px;
+
+            /* Radius */
+            --radius-xs: 4px;
+            --radius-sm: 6px;
+            --radius-md: 8px;
+            --radius-lg: 12px;
+            --radius-pill: 9999px;
+
+            /* Typography */
+            --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'SF Pro Display', system-ui, 'Segoe UI', Roboto, sans-serif;
+        }
+
+        /* ---------- Reset & base ---------- */
         *, *::before, *::after { box-sizing: border-box; }
         html, body { max-width: 100%; overflow-x: hidden; }
-        body { font-family: sans-serif; max-width: 500px; margin: 40px auto; padding: 20px; background-color: #f4f7f6; }
-        h2 { text-align: center; color: #333; }
-        .form-container { background: white; padding: 20px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
-        .input-group { display: flex; gap: 10px; margin-bottom: 15px; }
-        input { padding: 12px; border: 1px solid #ddd; border-radius: 5px; flex-grow: 1; font-size: 1em; }
-        button { padding: 12px 20px; border: none; background: #5c67f2; color: white; border-radius: 5px; cursor: pointer; font-weight: bold; transition: all 0.2s; }
-        button:hover { background: #4a54e1; transform: translateY(-2px); box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
-        .add-button { padding: 16px 30px !important; font-size: 1.1em !important; flex: 0 0 auto; min-width: 100px; }
-        .item { background: white; padding: 15px; border-radius: 8px; margin-bottom: 10px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); display: flex; justify-content: space-between; align-items: center; position: relative; overflow: hidden; }
-        .item::before { content: ''; position: absolute; top: 0; left: 0; height: 100%; background: linear-gradient(to right, rgba(92, 103, 242, 0.1), rgba(92, 103, 242, 0.15)); width: var(--progress, 0%); pointer-events: none; z-index: 0; }
-        .item > * { position: relative; z-index: 1; }
-        .sort-group { display: flex; gap: 30px; margin-bottom: 20px; justify-content: center; align-items: center; }
-        .sort-group > div { display: flex; gap: 5px; align-items: center; }
-        .sort-btn { padding: 8px 16px; font-size: 0.9em; background: #95a5a6; flex: 0 0 auto; }
-        .sort-btn.sort-triangle { padding: 6px 10px; font-size: 0.7em; min-width: 30px; }
-        .sort-btn.active { background: #5c67f2; }
-        .info { display: flex; flex-direction: column; }
-        .days { font-weight: bold; color: #e74c3c; font-size: 1.2em; }
-        .date-label { font-size: 0.8em; color: #888; }
-        .delete-btn { background: #ff7675; font-size: 0.8em; margin-left: 10px; }
-        .refresh-btn { background: #27ae60; font-size: 0.8em; margin-right: 10px; }
-        .refresh-btn:hover { background: #229954; }
-        .history-toggle { color: #5c67f2; cursor: pointer; text-decoration: underline; font-size: 0.8em; margin-top: 5px; }
-        .history { display: none; background: #f9f9f9; padding: 10px; margin-top: 10px; border-left: 3px solid #5c67f2; border-radius: 3px; }
-        .history.show { display: block; }
-        .history-item { font-size: 0.8em; color: #666; margin: 5px 0; }
-        .cycle-group { display: flex; gap: 10px; margin-bottom: 0; flex-wrap: wrap; align-items: flex-end; }
-        .cycle-inputs { display: flex; gap: 5px; align-items: center; width: 100%; }
-        .cycle-inputs input { flex: 0 1 80px; padding: 12px; }
-        .cycle-inputs select { padding: 12px; border: 1px solid #ddd; border-radius: 5px; font-size: 1em; }
-        .cycle-label { font-size: 0.9em; color: #666; margin-bottom: 8px; display: block; font-weight: 500; }
-        .cycle-info { font-size: 0.8em; color: #27ae60; margin-top: 5px; font-weight: bold; }
-        .overdue { color: #e74c3c; }
-        .help-btn { background: #3498db; padding: 8px 12px; font-size: 0.9em; position: fixed; top: 20px; right: 20px; z-index: 100; }
-        .help-btn:hover { background: #2980b9; }
-        .auth-bar { position: fixed; top: 20px; left: 20px; z-index: 100; display: flex; align-items: center; gap: 6px; }
-        .auth-btn { background: #2c3e50; padding: 8px 12px; font-size: 0.9em; }
-        .auth-btn:hover { background: #1a252f; }
-        .sync-status { font-size: 1em; min-width: 1.2em; text-align: center; }
-        .modal { display: none; position: fixed; z-index: 200; left: 0; top: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.5); }
-        .modal.show { display: block; }
-        .modal-content { background-color: white; margin: 5% auto; padding: 25px; border-radius: 8px; width: 90%; max-width: 500px; max-height: 90vh; overflow-y: auto; }
-        .modal-header { font-size: 1.5em; font-weight: bold; margin-bottom: 20px; color: #333; }
-        .modal-close { float: right; font-size: 1.5em; font-weight: bold; cursor: pointer; color: #aaa; }
-        .modal-close:hover { color: #333; }
-        .help-section { margin-bottom: 20px; }
-        .help-section h3 { color: #5c67f2; font-size: 1.1em; margin-bottom: 10px; }
-        .help-section p { color: #666; font-size: 0.95em; line-height: 1.6; margin-bottom: 8px; }
-        .help-section ul { margin-left: 20px; color: #666; font-size: 0.95em; }
-        .help-section li { margin-bottom: 5px; }
-        .history-graph { display: none; background: #f9f9f9; padding: 15px; margin: 10px 0; border-left: 3px solid #5c67f2; border-radius: 3px; }
-        .history-graph.show { display: block; }
-        .graph-container { position: relative; height: 300px; margin-bottom: 10px; }
-        .history-toggle-btn { color: #5c67f2; cursor: pointer; text-decoration: underline; font-size: 0.8em; margin-top: 5px; }
-        .backup-actions { display: flex; gap: 10px; flex-wrap: wrap; }
-        .backup-actions button { background: #5c67f2; padding: 10px 14px; font-size: 0.9em; }
-        .backup-actions button.import { background: #27ae60; }
-        .backup-actions button.import:hover { background: #229954; }
+        body {
+            font-family: var(--font-sans);
+            font-size: 14px;
+            line-height: 1.5;
+            color: var(--ink);
+            background: var(--canvas);
+            max-width: 520px;
+            margin: 40px auto;
+            padding: var(--space-lg);
+            -webkit-font-smoothing: antialiased;
+            -moz-osx-font-smoothing: grayscale;
+        }
+        h2 {
+            text-align: center;
+            color: var(--ink);
+            font-size: 28px;
+            font-weight: 600;
+            letter-spacing: -0.6px;
+            line-height: 1.2;
+            margin: 0 0 var(--space-xl);
+        }
 
+        /* ---------- Form container (card) ---------- */
+        .form-container {
+            background: var(--surface-1);
+            border: 1px solid var(--hairline);
+            padding: var(--space-lg);
+            border-radius: var(--radius-lg);
+            margin-bottom: var(--space-md);
+        }
+        .input-group {
+            display: flex;
+            gap: var(--space-sm);
+            margin-bottom: var(--space-md);
+        }
+        input, select {
+            font-family: var(--font-sans);
+            padding: 9px 12px;
+            border: 1px solid var(--hairline);
+            background: var(--canvas);
+            color: var(--ink);
+            border-radius: var(--radius-md);
+            flex-grow: 1;
+            font-size: 14px;
+            line-height: 1.4;
+            transition: border-color 0.12s ease, box-shadow 0.12s ease;
+        }
+        input::placeholder { color: var(--ink-tertiary); }
+        input:focus, select:focus {
+            outline: none;
+            border-color: var(--primary-focus);
+            box-shadow: 0 0 0 3px rgba(94, 106, 210, 0.18);
+        }
+
+        /* ---------- Buttons ---------- */
+        button {
+            font-family: var(--font-sans);
+            font-size: 14px;
+            font-weight: 500;
+            line-height: 1.2;
+            padding: 8px 14px;
+            border: 1px solid transparent;
+            background: var(--primary);
+            color: var(--on-primary);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: background 0.12s ease, border-color 0.12s ease, transform 0.06s ease;
+        }
+        button:hover { background: var(--primary-hover); }
+        button:active { transform: translateY(1px); }
+        button:focus-visible {
+            outline: none;
+            box-shadow: 0 0 0 3px rgba(94, 106, 210, 0.35);
+        }
+        .add-button {
+            padding: 11px 18px !important;
+            font-size: 14px !important;
+            flex: 0 0 auto;
+            min-width: 80px;
+        }
+
+        /* ---------- Item list (the main rows) ---------- */
+        #list { display: flex; flex-direction: column; gap: var(--space-xs); }
+        .item {
+            background: var(--surface-1);
+            border: 1px solid var(--hairline);
+            padding: var(--space-md);
+            border-radius: var(--radius-lg);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+            transition: border-color 0.12s ease, background 0.12s ease;
+        }
+        .item:hover { border-color: var(--hairline-strong); }
+        .item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            height: 100%;
+            background: linear-gradient(to right, rgba(94, 106, 210, 0.06), rgba(94, 106, 210, 0.10));
+            width: var(--progress, 0%);
+            pointer-events: none;
+            z-index: 0;
+        }
+        .item > * { position: relative; z-index: 1; }
+
+        /* ---------- Sort controls ---------- */
+        .sort-group {
+            display: flex;
+            gap: var(--space-lg);
+            margin-bottom: var(--space-md);
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+        .sort-group > div {
+            display: flex;
+            gap: var(--space-xxs);
+            align-items: center;
+            font-size: 13px;
+            color: var(--ink-subtle);
+        }
+        .sort-btn {
+            padding: 6px 10px;
+            font-size: 12px;
+            background: var(--surface-2);
+            color: var(--ink-subtle);
+            border: 1px solid var(--hairline);
+            flex: 0 0 auto;
+        }
+        .sort-btn:hover { background: var(--surface-3); color: var(--ink); }
+        .sort-btn.sort-triangle { padding: 4px 9px; font-size: 11px; min-width: 28px; }
+        .sort-btn.active {
+            background: var(--primary);
+            color: var(--on-primary);
+            border-color: var(--primary);
+        }
+
+        /* ---------- Item internals ---------- */
+        .info {
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
+        }
+        .info strong {
+            font-size: 15px;
+            font-weight: 600;
+            color: var(--ink);
+            letter-spacing: -0.15px;
+        }
+        .days {
+            font-weight: 600;
+            color: var(--ink);
+            font-size: 16px;
+            letter-spacing: -0.2px;
+        }
+        .date-label {
+            font-size: 12px;
+            color: var(--ink-tertiary);
+            font-weight: 400;
+        }
+        .cycle-info {
+            font-size: 12px;
+            color: var(--success);
+            margin-top: 2px;
+            font-weight: 500;
+        }
+        .overdue { color: var(--danger); }
+        .days.overdue, .days.over { color: var(--danger); }
+
+        /* ---------- Item action buttons ---------- */
+        .delete-btn, .refresh-btn {
+            font-size: 12px;
+            padding: 5px 10px;
+            font-weight: 500;
+        }
+        .refresh-btn {
+            background: var(--surface-2);
+            color: var(--ink);
+            border: 1px solid var(--hairline);
+            margin-right: var(--space-xs);
+        }
+        .refresh-btn:hover { background: var(--surface-3); }
+        .delete-btn {
+            background: transparent;
+            color: var(--ink-subtle);
+            border: 1px solid var(--hairline);
+        }
+        .delete-btn:hover {
+            background: var(--surface-2);
+            color: var(--danger);
+            border-color: var(--danger);
+        }
+
+        /* ---------- History toggles ---------- */
+        .history-toggle, .history-toggle-btn {
+            color: var(--ink-subtle);
+            cursor: pointer;
+            font-size: 12px;
+            margin-top: var(--space-xxs);
+            text-decoration: none;
+        }
+        .history-toggle:hover, .history-toggle-btn:hover { color: var(--primary); }
+        .history {
+            display: none;
+            background: var(--surface-2);
+            padding: var(--space-sm);
+            margin-top: var(--space-xs);
+            border-left: 2px solid var(--primary);
+            border-radius: var(--radius-xs);
+        }
+        .history.show { display: block; }
+        .history-item { font-size: 12px; color: var(--ink-subtle); margin: 4px 0; }
+        .history-graph {
+            display: none;
+            background: var(--surface-2);
+            padding: var(--space-md);
+            margin: var(--space-xs) 0;
+            border-left: 2px solid var(--primary);
+            border-radius: var(--radius-xs);
+        }
+        .history-graph.show { display: block; }
+        .graph-container { position: relative; height: 280px; margin-bottom: var(--space-xs); }
+
+        /* ---------- Cycle inputs ---------- */
+        .cycle-group {
+            display: flex;
+            gap: var(--space-xs);
+            margin-bottom: 0;
+            flex-wrap: wrap;
+            align-items: flex-end;
+        }
+        .cycle-inputs {
+            display: flex;
+            gap: var(--space-xxs);
+            align-items: center;
+            width: 100%;
+        }
+        .cycle-inputs input { flex: 0 1 80px; }
+        .cycle-inputs select { flex: 0 1 140px; }
+        .cycle-inputs button {
+            background: var(--surface-2);
+            color: var(--ink-subtle);
+            border: 1px solid var(--hairline);
+            flex: 0 0 auto;
+        }
+        .cycle-inputs button:hover { background: var(--surface-3); color: var(--ink); }
+        .cycle-label {
+            font-size: 12px;
+            color: var(--ink-subtle);
+            margin-bottom: var(--space-xxs);
+            display: block;
+            font-weight: 500;
+            letter-spacing: 0.2px;
+            text-transform: uppercase;
+        }
+
+        /* ---------- Top bars (auth + help) ---------- */
+        .help-btn {
+            background: var(--surface-1);
+            color: var(--ink-subtle);
+            border: 1px solid var(--hairline);
+            padding: 6px 12px;
+            font-size: 13px;
+            font-weight: 500;
+            position: fixed;
+            top: var(--space-md);
+            right: var(--space-md);
+            z-index: 100;
+        }
+        .help-btn:hover { background: var(--surface-2); color: var(--ink); }
+        .auth-bar {
+            position: fixed;
+            top: var(--space-md);
+            left: var(--space-md);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            gap: var(--space-xs);
+        }
+        .auth-btn {
+            background: var(--surface-1);
+            color: var(--ink-subtle);
+            border: 1px solid var(--hairline);
+            padding: 6px 12px;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        .auth-btn:hover { background: var(--surface-2); color: var(--ink); }
+        .sync-status {
+            font-size: 14px;
+            min-width: 1.2em;
+            text-align: center;
+            color: var(--ink-tertiary);
+        }
+
+        /* ---------- Modal ---------- */
+        .modal {
+            display: none;
+            position: fixed;
+            z-index: 200;
+            inset: 0;
+            background: rgba(14, 15, 17, 0.4);
+            backdrop-filter: blur(2px);
+        }
+        .modal.show { display: block; }
+        .modal-content {
+            background: var(--canvas);
+            border: 1px solid var(--hairline);
+            margin: 5% auto;
+            padding: var(--space-xl);
+            border-radius: var(--radius-lg);
+            width: 90%;
+            max-width: 520px;
+            max-height: 90vh;
+            overflow-y: auto;
+            box-shadow: 0 12px 32px rgba(14, 15, 17, 0.08);
+        }
+        .modal-header {
+            font-size: 20px;
+            font-weight: 600;
+            letter-spacing: -0.3px;
+            margin-bottom: var(--space-lg);
+            color: var(--ink);
+        }
+        .modal-close {
+            float: right;
+            font-size: 24px;
+            line-height: 1;
+            font-weight: 400;
+            cursor: pointer;
+            color: var(--ink-tertiary);
+            transition: color 0.12s ease;
+        }
+        .modal-close:hover { color: var(--ink); }
+        .help-section { margin-bottom: var(--space-lg); }
+        .help-section h3 {
+            color: var(--ink);
+            font-size: 14px;
+            font-weight: 600;
+            margin: 0 0 var(--space-xs);
+            letter-spacing: -0.1px;
+        }
+        .help-section p {
+            color: var(--ink-muted);
+            font-size: 13px;
+            line-height: 1.55;
+            margin-bottom: var(--space-xs);
+        }
+        .help-section ul {
+            margin: 0;
+            padding-left: var(--space-md);
+            color: var(--ink-muted);
+            font-size: 13px;
+            line-height: 1.55;
+        }
+        .help-section li { margin-bottom: 3px; }
+        .help-section strong { color: var(--ink); font-weight: 600; }
+
+        /* ---------- PC layout enhancements (>= 768px) ---------- */
+        @media (min-width: 768px) {
+            body {
+                max-width: 720px;
+                margin: 64px auto;
+                padding: var(--space-xl);
+            }
+            h2 {
+                font-size: 40px;
+                font-weight: 600;
+                letter-spacing: -1.0px;
+                line-height: 1.15;
+                margin-bottom: var(--space-xl);
+                text-align: left;
+            }
+            .form-container { padding: var(--space-xl); }
+            .item { padding: var(--space-md) var(--space-lg); }
+            .info strong { font-size: 16px; }
+            .days { font-size: 18px; }
+            .help-btn, .auth-btn { padding: 7px 14px; font-size: 13px; }
+        }
+
+        /* ---------- Mobile layout (< 540px) ---------- */
         @media (max-width: 540px) {
-            body { margin: 16px auto; padding: 12px; }
-            h2 { margin-top: 56px; font-size: 1.4em; }
-            .form-container { padding: 16px; }
+            body { margin: 16px auto; padding: var(--space-sm); }
+            h2 { margin-top: 56px; font-size: 22px; letter-spacing: -0.5px; }
+            .form-container { padding: var(--space-md); }
             .input-group { flex-wrap: wrap; }
             .input-group input { flex: 1 1 100%; }
-            .add-button { flex: 1 1 100%; width: 100%; padding: 14px !important; }
+            .add-button { flex: 1 1 100%; width: 100%; padding: 12px !important; }
             .cycle-inputs { flex-wrap: wrap; }
             .cycle-inputs input { flex: 1 1 90px; min-width: 0; }
             .cycle-inputs select { flex: 1 1 120px; min-width: 0; }
-            .cycle-inputs button { flex: 0 0 auto; padding: 12px 14px; }
-            .item { flex-wrap: wrap; gap: 8px; padding: 12px; }
+            .cycle-inputs button { flex: 0 0 auto; padding: 9px 12px; }
+            .item { flex-wrap: wrap; gap: var(--space-xs); padding: var(--space-sm) var(--space-md); }
             .item > div:last-child { text-align: left !important; width: 100%; }
-            .sort-group { gap: 16px; flex-wrap: wrap; }
+            .sort-group { gap: var(--space-md); }
             .help-btn { top: 12px; right: 12px; }
             .auth-bar { top: 12px; left: 12px; }
-            .auth-btn { padding: 6px 10px; font-size: 0.8em; }
-            .modal-content { margin: 16px auto; width: calc(100% - 24px); padding: 18px; }
+            .auth-btn { padding: 6px 10px; font-size: 12px; }
+            .modal-content { margin: 16px auto; width: calc(100% - 24px); padding: var(--space-lg); }
         }
     </style>
 </head>
@@ -132,7 +510,7 @@
         <div class="help-section">
             <h3>🔧 항목 관리</h3>
             <ul>
-                <li><strong>리프레시:</strong> 항목의 날짜를 오늘로 업데이트합니다</li>
+                <li><strong>리프레시:</strong> 항목의 날짜를 폼의 기준일로 업데이트합니다 (기본 오늘)</li>
                 <li><strong>삭제:</strong> 항목을 완전히 삭제합니다</li>
                 <li><strong>히스토리:</strong> 클릭하면 이전 기록들을 확인할 수 있습니다</li>
             </ul>
@@ -158,14 +536,13 @@
         </div>
 
         <div class="help-section">
-            <h3>💾 백업 / 복원</h3>
-            <p>JSON 으로 내보내 별도 보관하거나, 다른 기기로 옮길 수 있습니다.</p>
-            <div class="backup-actions">
-                <button onclick="exportData()">📥 내보내기 (JSON)</button>
-                <button class="import" onclick="document.getElementById('importFile').click()">📤 가져오기</button>
-                <input type="file" id="importFile" accept="application/json" style="display:none" onchange="importData(event)">
-            </div>
-            <p style="margin-top:10px; font-size:0.85em; color:#888;">가져오기를 하면 현재 데이터를 덮어씁니다.</p>
+            <h3>📅 기준일</h3>
+            <p>입력 폼 상단의 <strong>날짜</strong>가 모든 기록의 기준일입니다.</p>
+            <ul>
+                <li><strong>추가:</strong> 새 항목을 이 날짜로 기록</li>
+                <li><strong>리프레시:</strong> 기존 항목을 이 날짜로 갱신 (기본값은 오늘)</li>
+                <li>어제·과거 활동을 뒤늦게 기록할 때 유용합니다.</li>
+            </ul>
         </div>
     </div>
 </div>
@@ -468,11 +845,13 @@
     function refreshItem(id) {
         const item = activities.find(a => a.id === id);
         if (!item) return;
-        const today = new Date().toISOString().substring(0, 10);
-        if (confirm(`${item.name}을(를) ${today}로 리프레시하시겠습니까?`)) {
-            item.lastDate = today;
+        // Form date acts as the "기준일" — fall back to today if blank.
+        const formDate = document.getElementById('taskDate').value;
+        const targetDate = formDate || new Date().toISOString().substring(0, 10);
+        if (confirm(`${item.name}을(를) ${targetDate} 로 리프레시하시겠습니까?`)) {
+            item.lastDate = targetDate;
             if (!item.history) item.history = [];
-            item.history.push(today);
+            item.history.push(targetDate);
             touch(item);
             saveActivities();
             render();
@@ -624,65 +1003,6 @@
         }
     }
 
-    function exportData() {
-        const payload = {
-            app: 'dday',
-            version: 1,
-            exportedAt: new Date().toISOString(),
-            activities: JSON.parse(localStorage.getItem('myActivities') || '[]'),
-            sortSettings: JSON.parse(localStorage.getItem('sortSettings') || 'null'),
-        };
-        const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `dday-backup-${new Date().toISOString().slice(0, 10)}.json`;
-        document.body.appendChild(a);
-        a.click();
-        a.remove();
-        URL.revokeObjectURL(url);
-    }
-
-    function importData(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-        const reader = new FileReader();
-        reader.onload = (e) => {
-            try {
-                const data = JSON.parse(e.target.result);
-                const incoming = Array.isArray(data) ? data : data.activities;
-                if (!Array.isArray(incoming)) throw new Error('activities 배열을 찾을 수 없습니다.');
-                const valid = incoming.every(it =>
-                    it && typeof it.name === 'string' &&
-                    typeof it.lastDate === 'string' &&
-                    Array.isArray(it.history)
-                );
-                if (!valid) throw new Error('항목 형식이 올바르지 않습니다.');
-                if (!confirm(`${incoming.length}개 항목을 가져옵니다. 현재 데이터를 덮어쓸까요?`)) return;
-                const now = new Date().toISOString();
-                activities = incoming.map(a => ({
-                    ...a,
-                    id: a.id || crypto.randomUUID(),
-                    updatedAt: a.updatedAt || now,
-                }));
-                saveActivities();
-                if (data.sortSettings) {
-                    localStorage.setItem('sortSettings', JSON.stringify(data.sortSettings));
-                    sortType = data.sortSettings.type;
-                    sortOrder = data.sortSettings.order;
-                }
-                render();
-                closeHelp();
-                alert('가져오기 완료!');
-            } catch (err) {
-                alert('가져오기 실패: ' + err.message);
-            } finally {
-                event.target.value = '';
-            }
-        };
-        reader.readAsText(file);
-    }
-
     // 오늘 날짜 기본값 설정
     document.getElementById('taskDate').value = new Date().toISOString().substring(0, 10);
 
@@ -706,7 +1026,7 @@
     Object.assign(window, {
         setSortOrder, openHelp, closeHelp, toggleHistory,
         addItem, clearCycle, refreshItem, deleteItem,
-        exportData, importData, handleAuthClick,
+        handleAuthClick,
     });
 
     // --- Auth + cloud sync wiring ---
