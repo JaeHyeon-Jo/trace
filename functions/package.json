@@ -1,0 +1,14 @@
+{
+  "name": "dday-functions",
+  "description": "Scheduled FCM push for D+Day cycle reminders",
+  "type": "module",
+  "main": "index.js",
+  "engines": {
+    "node": "20"
+  },
+  "dependencies": {
+    "firebase-admin": "^12.6.0",
+    "firebase-functions": "^6.0.1"
+  },
+  "private": true
+}

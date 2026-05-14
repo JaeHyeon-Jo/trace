@@ -16,11 +16,19 @@ import {
   collection,
   doc,
   setDoc,
+  deleteDoc,
   onSnapshot,
   writeBatch,
   enableIndexedDbPersistence,
+  serverTimestamp,
 } from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-firestore.js';
-import { firebaseConfig } from './firebase-config.js';
+import {
+  getMessaging,
+  getToken,
+  onMessage,
+  isSupported as isMessagingSupported,
+} from 'https://www.gstatic.com/firebasejs/10.13.0/firebase-messaging.js';
+import { firebaseConfig, vapidKey } from './firebase-config.js';
 
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
@@ -110,4 +118,91 @@ export function mergeLWW(local, remote) {
     }
   }
   return [...map.values()];
+}
+
+// ---------------------------------------------------------------------------
+// Push notifications (FCM)
+// ---------------------------------------------------------------------------
+
+let messaging = null;
+let messagingReady = null;
+
+// Lazily resolve a Messaging instance. Returns null when the browser doesn't
+// support push at all (e.g. iOS Safari without "Add to Home Screen").
+async function getMessagingInstance() {
+  if (messagingReady) return messagingReady;
+  messagingReady = (async () => {
+    try {
+      if (!(await isMessagingSupported())) return null;
+      messaging = getMessaging(app);
+      return messaging;
+    } catch (e) {
+      console.warn('Messaging init failed', e);
+      return null;
+    }
+  })();
+  return messagingReady;
+}
+
+// Returns one of: 'granted' | 'denied' | 'default' | 'unsupported'
+export async function notificationPermissionState() {
+  if (!('Notification' in window)) return 'unsupported';
+  const m = await getMessagingInstance();
+  if (!m) return 'unsupported';
+  return Notification.permission;
+}
+
+// Request OS-level notification permission, register the FCM token, and
+// store it under users/{uid}/devices/{token} so Cloud Functions can target
+// this device. Returns the token string, or null on failure/denial.
+export async function enableNotifications(uid) {
+  const m = await getMessagingInstance();
+  if (!m) throw new Error('이 브라우저는 푸시 알림을 지원하지 않습니다.');
+
+  const permission = await Notification.requestPermission();
+  if (permission !== 'granted') {
+    throw new Error('알림 권한이 거부되었습니다. 브라우저 설정에서 허용해주세요.');
+  }
+
+  // The FCM SDK looks for /firebase-messaging-sw.js by default — must be at
+  // site root with that exact name. We register it explicitly so we can also
+  // share it with the main app SW lifecycle.
+  const swRegistration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
+
+  const token = await getToken(m, {
+    vapidKey,
+    serviceWorkerRegistration: swRegistration,
+  });
+  if (!token) throw new Error('FCM 토큰을 받지 못했습니다.');
+
+  await setDoc(doc(db, 'users', uid, 'devices', token), {
+    token,
+    userAgent: navigator.userAgent,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  }, { merge: true });
+
+  return token;
+}
+
+// Remove the current device's token from Firestore — call this on logout or
+// when the user explicitly disables notifications.
+export async function disableNotifications(uid) {
+  const m = await getMessagingInstance();
+  if (!m) return;
+  try {
+    const token = await getToken(m, { vapidKey });
+    if (token) await deleteDoc(doc(db, 'users', uid, 'devices', token));
+  } catch (e) {
+    console.warn('Failed to delete device token', e);
+  }
+}
+
+// Foreground message handler — fires while a tab is focused. The background
+// SW won't fire in that case, so we surface the notification ourselves.
+export function onForegroundMessage(callback) {
+  getMessagingInstance().then((m) => {
+    if (!m) return;
+    onMessage(m, (payload) => callback(payload));
+  });
 }

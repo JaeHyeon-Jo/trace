@@ -12,3 +12,7 @@ firebase-config.js
 .firebase/
 firebase-debug.log
 firebase-debug.*.log
+
+# Cloud Functions deps (installed at deploy time)
+functions/node_modules/
+functions/package-lock.json

@@ -16,3 +16,8 @@ export const firebaseConfig = {
   messagingSenderId: 'YOUR_SENDER_ID',
   appId: 'YOUR_APP_ID',
 };
+
+// VAPID public key for Web Push.
+// Generate in Firebase Console → Project Settings → Cloud Messaging tab →
+// "Web Push certificates" → "Generate key pair". Copy the key here.
+export const vapidKey = 'YOUR_VAPID_PUBLIC_KEY';
