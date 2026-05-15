@@ -1,10 +1,23 @@
-const CACHE = 'dday-v1';
+const CACHE = 'dday-v2';
 const ASSETS = [
   './',
   './index.html',
+  './styles.css',
   './manifest.webmanifest',
   './icon.svg',
-  'https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js',
+  './modules/app.js',
+  './modules/state.js',
+  './modules/helpers.js',
+  './modules/topbar.js',
+  './modules/modal.js',
+  './modules/toast.js',
+  './modules/ai.js',
+  './modules/views/dashboard.js',
+  './modules/views/list.js',
+  './modules/views/tagged.js',
+  './modules/views/timeline.js',
+  './modules/views/calendar.js',
+  'https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap',
 ];
 
 // sync.js and firebase-config.js are intentionally not preloaded — they are

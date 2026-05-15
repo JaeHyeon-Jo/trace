@@ -6,6 +6,9 @@ service cloud.firestore {
     match /users/{userId}/activities/{activityId} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }
+    match /users/{userId}/tags/{tagId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
     match /users/{userId}/meta/{doc} {
       allow read, write: if request.auth != null && request.auth.uid == userId;
     }

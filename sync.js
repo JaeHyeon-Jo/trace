@@ -83,9 +83,23 @@ function activitiesCol(uid) {
   return collection(db, 'users', uid, 'activities');
 }
 
+function tagsCol(uid) {
+  return collection(db, 'users', uid, 'tags');
+}
+
 // Subscribe to cloud changes. Calls onUpdate(remoteActivities) on every snapshot.
 export function subscribeToCloud(uid, onUpdate) {
   return onSnapshot(activitiesCol(uid), (snap) => {
+    const remote = snap.docs.map((d) => d.data());
+    onUpdate(remote);
+  });
+}
+
+// Alias for new API used by modules/app.js — same as subscribeToCloud.
+export const subscribeItems = subscribeToCloud;
+
+export function subscribeTags(uid, onUpdate) {
+  return onSnapshot(tagsCol(uid), (snap) => {
     const remote = snap.docs.map((d) => d.data());
     onUpdate(remote);
   });
@@ -101,6 +115,43 @@ export async function pushToCloud(uid, activities) {
   await batch.commit();
 }
 
+export const pushItems = pushToCloud;
+
+export async function pushTags(uid, tags) {
+  if (!tags || !tags.length) return;
+  const batch = writeBatch(db);
+  for (const t of tags) {
+    batch.set(doc(tagsCol(uid), t.id), t);
+  }
+  await batch.commit();
+}
+
+// Debounced push helpers — coalesce rapid local edits into one batch.
+const DEBOUNCE_MS = 300;
+function makeDebouncedPush(pushFn) {
+  let timer = null;
+  let pendingResolvers = [];
+  let lastArgs = null;
+  return function debouncedPush(...args) {
+    lastArgs = args;
+    return new Promise((resolve, reject) => {
+      pendingResolvers.push({ resolve, reject });
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        const resolvers = pendingResolvers;
+        pendingResolvers = [];
+        timer = null;
+        pushFn(...lastArgs)
+          .then(() => resolvers.forEach(r => r.resolve()))
+          .catch((err) => resolvers.forEach(r => r.reject(err)));
+      }, DEBOUNCE_MS);
+    });
+  };
+}
+
+export const pushItemsDebounced = makeDebouncedPush(pushToCloud);
+export const pushTagsDebounced = makeDebouncedPush(pushTags);
+
 // Push a single activity (used after local mutations).
 export async function pushActivity(uid, activity) {
   await setDoc(doc(activitiesCol(uid), activity.id), activity);
@@ -108,7 +159,7 @@ export async function pushActivity(uid, activity) {
 
 // LWW merge by id. Tombstones (deletedAt) are preserved during merge so they
 // can sync to other devices; the UI layer filters them out before rendering.
-export function mergeLWW(local, remote) {
+function mergeByIdLWW(local, remote) {
   const map = new Map();
   for (const a of local) map.set(a.id, a);
   for (const r of remote) {
@@ -119,6 +170,9 @@ export function mergeLWW(local, remote) {
   }
   return [...map.values()];
 }
+
+export const mergeLWW = mergeByIdLWW;
+export const mergeTagsLWW = mergeByIdLWW;
 
 // ---------------------------------------------------------------------------
 // Push notifications (FCM)
