@@ -449,6 +449,55 @@
             .help-btn, .auth-btn { padding: 7px 14px; font-size: 13px; }
         }
 
+        /* ---------- Two-column desktop layout (>= 1024px) ---------- */
+        @media (min-width: 1024px) {
+            body {
+                max-width: 1100px;
+                margin: 48px auto;
+                padding: var(--space-xl);
+            }
+
+            .main-grid {
+                display: grid;
+                grid-template-columns: 320px 1fr;
+                gap: var(--space-xl);
+                align-items: start;
+            }
+
+            .sidebar {
+                position: sticky;
+                top: var(--space-xl);
+                display: flex;
+                flex-direction: column;
+                gap: var(--space-md);
+            }
+
+            .sidebar .form-container { padding: var(--space-lg); margin-bottom: 0; }
+            .sidebar .input-group { flex-wrap: wrap; }
+            .sidebar .input-group input { flex: 1 1 100%; }
+            .sidebar .add-button { flex: 1 1 100%; width: 100%; padding: 11px 18px !important; }
+
+            .sidebar .cycle-inputs { flex-wrap: wrap; }
+            .sidebar .cycle-inputs input { flex: 1 1 80px; min-width: 0; }
+            .sidebar .cycle-inputs select { flex: 1 1 120px; min-width: 0; }
+
+            .sidebar .sort-group {
+                flex-direction: column;
+                gap: var(--space-xs);
+                margin-bottom: 0;
+                align-items: stretch;
+                justify-content: flex-start;
+                background: var(--surface-1);
+                border: 1px solid var(--hairline);
+                border-radius: var(--radius-lg);
+                padding: var(--space-md) var(--space-lg);
+            }
+            .sidebar .sort-group > div {
+                width: 100%;
+                justify-content: space-between;
+            }
+        }
+
         /* ---------- Mobile layout (< 540px) ---------- */
         @media (max-width: 540px) {
             body { margin: 16px auto; padding: var(--space-sm); }
@@ -561,6 +610,8 @@
     </div>
 </div>
 
+<div class="main-grid">
+<aside class="sidebar">
 <div class="form-container">
     <div class="input-group">
         <input type="text" id="taskName" placeholder="어떤 일을 하셨나요?">
@@ -597,8 +648,10 @@
         <button class="sort-btn sort-triangle" onclick="setSortOrder('remaining', 'desc', event)">▼</button>
     </div>
 </div>
+</aside>
 
 <div id="list"></div>
+</div>
 
 <script type="module">
     // Cross-device sync (Firebase) is loaded lazily: if firebase-config.js is
