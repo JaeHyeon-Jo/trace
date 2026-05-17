@@ -31,9 +31,14 @@ export function mountTopbar(rootEl, { sync = null } = {}) {
 
             <div class="dday-topbar-actions">
                 <input id="searchInput" class="dday-input dday-search" type="search" placeholder="검색…" aria-label="검색">
-                <button class="dday-btn ghost" id="tagsBtn" title="태그 관리" aria-label="태그 관리">⚙</button>
-                <button class="dday-btn ghost" id="helpBtn" title="도움말" aria-label="도움말">?</button>
-                <button class="dday-btn ghost" id="notifBtn" title="알림 설정" aria-label="알림 설정" hidden>🔔</button>
+                <div class="dday-overflow" id="overflowWrap">
+                    <button class="dday-btn ghost dday-overflow-trigger" id="overflowBtn" type="button" aria-haspopup="true" aria-expanded="false" aria-label="더보기">⋮</button>
+                    <div class="dday-overflow-menu" id="overflowMenu" role="menu">
+                        <button class="dday-btn ghost" id="tagsBtn" title="태그 관리" aria-label="태그 관리" data-label="태그 관리">⚙</button>
+                        <button class="dday-btn ghost" id="helpBtn" title="도움말" aria-label="도움말" data-label="도움말">?</button>
+                        <button class="dday-btn ghost" id="notifBtn" title="알림 설정" aria-label="알림 설정" data-label="알림 설정" hidden>🔔</button>
+                    </div>
+                </div>
                 <span id="syncStatus" class="dday-sync-status" aria-live="polite"></span>
                 <button class="dday-btn ghost" id="authBtn">🔐 로그인</button>
                 <button class="dday-btn" id="addBtn">+ 새 항목</button>
@@ -57,13 +62,31 @@ export function mountTopbar(rootEl, { sync = null } = {}) {
     searchInput.addEventListener('input', debounce(() => setFilterQuery(searchInput.value), 150));
 
     // Actions
-    rootEl.querySelector('#tagsBtn').addEventListener('click', () => openTagManagerModal());
-    rootEl.querySelector('#helpBtn').addEventListener('click', () => openHelpModal());
+    rootEl.querySelector('#tagsBtn').addEventListener('click', () => { closeOverflow(); openTagManagerModal(); });
+    rootEl.querySelector('#helpBtn').addEventListener('click', () => { closeOverflow(); openHelpModal(); });
     rootEl.querySelector('#addBtn').addEventListener('click', () => openCrudModal(null));
+
+    // Overflow menu (mobile)
+    const overflowBtn = rootEl.querySelector('#overflowBtn');
+    const overflowMenu = rootEl.querySelector('#overflowMenu');
+    overflowBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const open = overflowMenu.classList.toggle('is-open');
+        overflowBtn.setAttribute('aria-expanded', open ? 'true' : 'false');
+    });
+    document.addEventListener('click', (e) => {
+        if (!overflowMenu.classList.contains('is-open')) return;
+        if (overflowMenu.contains(e.target) || overflowBtn.contains(e.target)) return;
+        closeOverflow();
+    });
+    function closeOverflow() {
+        overflowMenu.classList.remove('is-open');
+        overflowBtn.setAttribute('aria-expanded', 'false');
+    }
 
     // Auth
     rootEl.querySelector('#authBtn').addEventListener('click', handleAuthClick);
-    rootEl.querySelector('#notifBtn').addEventListener('click', handleNotifClick);
+    rootEl.querySelector('#notifBtn').addEventListener('click', (e) => { closeOverflow(); handleNotifClick(e); });
 
     // Mobile guard: if persisted view is timeline/calendar on mobile, fallback to list
     if (isMobileViewport() && (state.view === 'timeline' || state.view === 'calendar')) {
