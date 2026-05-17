@@ -17,22 +17,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: functions/package.json
-
       - name: Write firebase-config.js from secret
         run: printf '%s' "${{ secrets.FIREBASE_CONFIG_JS }}" > firebase-config.js
 
-      - name: Install Cloud Functions deps
-        working-directory: functions
-        run: npm install --no-audit --no-fund
-
-      - name: Deploy hosting, functions, firestore rules
+      - name: Deploy hosting and firestore rules
         uses: w9jds/firebase-action@v14.10.1
         with:
-          args: deploy --only hosting,functions,firestore:rules --non-interactive --project d-plus-day
+          args: deploy --only hosting,firestore:rules --non-interactive --project d-plus-day
         env:
           GCP_SA_KEY: ${{ secrets.FIREBASE_SERVICE_ACCOUNT_D_PLUS_DAY }}
