@@ -1,4 +1,4 @@
-const CACHE = 'dday-v2';
+const CACHE = 'dday-v3';
 const ASSETS = [
   './',
   './index.html',

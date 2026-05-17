@@ -7,11 +7,31 @@ import { mountTopbar, refresh as refreshTopbar } from './topbar.js';
 import { isMobileViewport } from './helpers.js';
 
 const SWIPE_VIEWS = ['dashboard', 'list'];
+const SWIPE_EXIT_MS = 160;
+const SWIPE_ENTER_MS = 200;
+let swipeBusy = false;
+
+function animateViewSwitch(rootEl, dir, nextView) {
+    if (swipeBusy) return;
+    swipeBusy = true;
+    const exitClass  = dir === 'next' ? 'view-exit-left'        : 'view-exit-right';
+    const enterClass = dir === 'next' ? 'view-enter-from-right' : 'view-enter-from-left';
+    rootEl.classList.add(exitClass);
+    setTimeout(() => {
+        rootEl.classList.remove(exitClass);
+        setView(nextView);
+        rootEl.classList.add(enterClass);
+        setTimeout(() => {
+            rootEl.classList.remove(enterClass);
+            swipeBusy = false;
+        }, SWIPE_ENTER_MS);
+    }, SWIPE_EXIT_MS);
+}
 
 function setupSwipeNavigation(rootEl) {
     let startX = 0, startY = 0, tracking = false;
     rootEl.addEventListener('touchstart', (e) => {
-        if (!isMobileViewport() || e.touches.length !== 1) { tracking = false; return; }
+        if (!isMobileViewport() || e.touches.length !== 1 || swipeBusy) { tracking = false; return; }
         startX = e.touches[0].clientX;
         startY = e.touches[0].clientY;
         tracking = true;
@@ -25,8 +45,8 @@ function setupSwipeNavigation(rootEl) {
         if (Math.abs(dx) < 60 || Math.abs(dy) > 40) return;
         const idx = SWIPE_VIEWS.indexOf(state.view);
         if (idx === -1) return;
-        if (dx < 0 && idx < SWIPE_VIEWS.length - 1) setView(SWIPE_VIEWS[idx + 1]);
-        else if (dx > 0 && idx > 0)                 setView(SWIPE_VIEWS[idx - 1]);
+        if (dx < 0 && idx < SWIPE_VIEWS.length - 1) animateViewSwitch(rootEl, 'next', SWIPE_VIEWS[idx + 1]);
+        else if (dx > 0 && idx > 0)                 animateViewSwitch(rootEl, 'prev', SWIPE_VIEWS[idx - 1]);
     }, { passive: true });
 }
 

@@ -20,6 +20,9 @@ jobs:
       - name: Write firebase-config.js from secret
         run: printf '%s' "${{ secrets.FIREBASE_CONFIG_JS }}" > firebase-config.js
 
+      - name: Stamp service worker cache name with commit SHA
+        run: sed -i "s/const CACHE = '[^']*'/const CACHE = 'dday-${GITHUB_SHA:0:8}'/" service-worker.js
+
       - name: Deploy hosting and firestore rules
         uses: w9jds/firebase-action@v14.10.1
         with:
