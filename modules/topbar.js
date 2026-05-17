@@ -20,7 +20,7 @@ export function mountTopbar(rootEl, { sync = null } = {}) {
         <header class="dday-topbar">
             <a class="dday-brand" href="#" aria-label="D+Day 홈">
                 <span class="dday-brand-dot"></span>
-                D+Day
+                D+Day!
             </a>
 
             <nav class="dday-view-switcher" role="tablist" id="viewSwitcher">
