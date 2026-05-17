@@ -366,6 +366,49 @@ button, input, select, textarea {
 }
 
 /* ========================================================================
+   User dropdown menu (auth button → menu)
+   ======================================================================== */
+
+.dday-user {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+.dday-user-menu {
+    position: absolute;
+    top: calc(100% + 6px);
+    right: 0;
+    background: var(--canvas);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-md);
+    box-shadow: 0 8px 24px rgba(14, 15, 17, 0.08);
+    padding: 6px;
+    min-width: 200px;
+    z-index: 60;
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+.dday-user-menu[hidden] { display: none; }
+.dday-menu-item {
+    background: transparent;
+    border: 0;
+    width: 100%;
+    text-align: left;
+    padding: 9px 12px;
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    font-size: 14px;
+    color: var(--ink);
+    font-family: inherit;
+}
+.dday-menu-item:hover { background: var(--surface-2); }
+.dday-menu-item:disabled { opacity: 0.5; cursor: not-allowed; }
+.dday-menu-danger { color: #e5484d; }
+.dday-menu-sep { height: 1px; background: var(--hairline); margin: 4px 0; }
+
+/* ========================================================================
    Modal
    ======================================================================== */
 
@@ -1063,46 +1106,32 @@ button, input, select, textarea {
     .dday-topbar { grid-template-columns: 1fr auto; gap: var(--space-xs); padding: 8px var(--space-md); }
     .dday-view-switcher { order: 3; grid-column: 1 / -1; }
     .dday-topbar-actions .dday-search { display: none; }
-    /* Collapse secondary actions into a ⋮ dropdown so + 새 항목 always fits.
-       Menu anchors to .dday-topbar (position: sticky) so it can sit flush
-       with the topbar's right edge instead of extending off-screen left. */
-    .dday-overflow { display: inline-flex; }
-    .dday-overflow-trigger { display: inline-flex; }
-    .dday-overflow-menu {
-        display: none;
-        position: absolute;
-        right: var(--space-md);
-        top: 100%;
-        margin-top: 6px;
-        background: var(--canvas);
-        border: 1px solid var(--hairline);
-        border-radius: var(--radius-md);
-        box-shadow: 0 8px 24px rgba(14, 15, 17, 0.08);
-        padding: 6px;
-        min-width: 180px;
-        flex-direction: column;
-        gap: 2px;
-        z-index: 60;
-    }
-    .dday-overflow-menu.is-open { display: flex; }
-    .dday-overflow-menu .dday-btn {
-        width: 100%;
-        justify-content: flex-start;
-        text-align: left;
-        font-size: 13px;
-        padding: 8px 10px;
-    }
-    .dday-overflow-menu .dday-btn[data-label]::after {
-        content: " " attr(data-label);
-    }
+    .dday-topbar-actions { gap: 6px; }
+
+    /* Mobile view switcher: only 대시보드 + 리스트 */
+    .dday-view-switcher button[data-view="tagged"],
     .dday-view-switcher button[data-view="timeline"],
     .dday-view-switcher button[data-view="calendar"] { display: none; }
+
+    /* User dropdown — anchor flush to right edge so it doesn't clip */
+    .dday-user-menu { right: 4px; min-width: 220px; }
+    .dday-menu-item { font-size: 15px; padding: 11px 12px; }
+
     #viewRoot { padding: var(--space-md); }
     .v2-section-body { grid-template-columns: 1fr; }
     .v1-col-header { display: none; }
-    .dday-row { grid-template-columns: 1fr auto; row-gap: 4px; padding: var(--space-sm); }
+    .dday-row { grid-template-columns: 1fr auto; row-gap: 6px; padding: var(--space-sm); }
     .v1-track-wrap, .v1-tags-inline { grid-column: 1 / -1; }
     .v1-actions { grid-column: 1 / -1; }
+
+    /* Mobile readability bumps */
+    .dday-row strong { font-size: 16px; }
+    .dday-row .dday-mono { font-size: 14px; }
+    .v1-track-meta { font-size: 14px; }
+    .dday-tag { font-size: 14px; }
+    .dday-btn { font-size: 15px; }
+    #searchInput { font-size: 16px; }
+
     .v5-stats { grid-template-columns: repeat(2, 1fr); gap: var(--space-xs); }
     .v5-stat { padding: var(--space-sm); }
     .v5-stat .num { font-size: 24px; }
