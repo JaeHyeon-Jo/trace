@@ -144,6 +144,12 @@ button, input, select, textarea {
     border-color: var(--primary-focus);
     box-shadow: 0 0 0 3px rgba(94, 106, 210, 0.18);
 }
+.dday-input[type="date"] {
+    -webkit-appearance: none;
+    appearance: none;
+    text-align: left;
+    min-height: 40px;
+}
 
 /* ========================================================================
    Topbar

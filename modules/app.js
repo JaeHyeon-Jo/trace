@@ -6,6 +6,30 @@ import {
 import { mountTopbar, refresh as refreshTopbar } from './topbar.js';
 import { isMobileViewport } from './helpers.js';
 
+const SWIPE_VIEWS = ['dashboard', 'list'];
+
+function setupSwipeNavigation(rootEl) {
+    let startX = 0, startY = 0, tracking = false;
+    rootEl.addEventListener('touchstart', (e) => {
+        if (!isMobileViewport() || e.touches.length !== 1) { tracking = false; return; }
+        startX = e.touches[0].clientX;
+        startY = e.touches[0].clientY;
+        tracking = true;
+    }, { passive: true });
+    rootEl.addEventListener('touchend', (e) => {
+        if (!tracking) return;
+        tracking = false;
+        const t = e.changedTouches[0];
+        const dx = t.clientX - startX;
+        const dy = t.clientY - startY;
+        if (Math.abs(dx) < 60 || Math.abs(dy) > 40) return;
+        const idx = SWIPE_VIEWS.indexOf(state.view);
+        if (idx === -1) return;
+        if (dx < 0 && idx < SWIPE_VIEWS.length - 1) setView(SWIPE_VIEWS[idx + 1]);
+        else if (dx > 0 && idx > 0)                 setView(SWIPE_VIEWS[idx - 1]);
+    }, { passive: true });
+}
+
 import * as ViewDashboard from './views/dashboard.js';
 import * as ViewList from './views/list.js';
 import * as ViewTagged from './views/tagged.js';
@@ -125,6 +149,8 @@ export async function start() {
             renderActiveView();
         }
     });
+
+    setupSwipeNavigation(viewRoot);
 
     // First paint
     renderActiveView();
