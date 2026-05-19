@@ -122,7 +122,11 @@ export function persistSort() { writeJson(KEY_SORT, state.sort); }
 function touch(item) { item.updatedAt = nowIso(); }
 
 export function visibleItems() {
-    return state.items.filter(a => !a.deletedAt);
+    return state.items.filter(a => !a.deletedAt && !a.archivedAt);
+}
+
+export function archivedItems() {
+    return state.items.filter(a => a.archivedAt && !a.deletedAt);
 }
 
 export function visibleTags() {
@@ -187,6 +191,28 @@ export function deleteItem(id) {
     if (!item) return null;
     const prev = structuredClone(item);
     item.deletedAt = nowIso();
+    touch(item);
+    persistItems();
+    notify();
+    return prev;
+}
+
+export function archiveItem(id) {
+    const item = getItem(id);
+    if (!item) return null;
+    const prev = structuredClone(item);
+    item.archivedAt = nowIso();
+    touch(item);
+    persistItems();
+    notify();
+    return prev;
+}
+
+export function unarchiveItem(id) {
+    const item = getItem(id);
+    if (!item) return null;
+    const prev = structuredClone(item);
+    item.archivedAt = null;
     touch(item);
     persistItems();
     notify();

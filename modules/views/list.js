@@ -1,7 +1,8 @@
 // V1 — Dense list with tag rail + sorted by urgency.
 import {
-    state, visibleItems, visibleTags, filterItems, toggleFilterTag, clearFilterTags,
-    refreshItem, restoreItem, deleteItem,
+    state, visibleItems, archivedItems, visibleTags, filterItems,
+    toggleFilterTag, clearFilterTags, toggleCollapsed,
+    refreshItem, restoreItem, deleteItem, archiveItem, unarchiveItem,
 } from '../state.js';
 import {
     escapeHtml, urgency, urgencyClass, daysUntilNext, formatDPlus,
@@ -10,10 +11,14 @@ import {
 import { openCrudModal } from '../modal.js';
 import { showUndoToast } from '../toast.js';
 
+const ARCHIVE_SECTION = '__archived';
+
 export function render(root) {
     const tags = visibleTags();
     const itemsAll = visibleItems();
     const items = filterItems(itemsAll).slice();
+    const archived = filterItems(archivedItems()).slice();
+    const archiveCollapsed = !state.collapsed.has(ARCHIVE_SECTION);
 
     // README §V1 sort: urgency desc → daysUntilNext asc → elapsed desc
     const today = new Date();
@@ -25,6 +30,9 @@ export function render(root) {
         const dbv = db === null ? Infinity : db;
         return dav - dbv;
     });
+
+    // Archived: most recently archived first
+    archived.sort((a, b) => (b.archivedAt || '').localeCompare(a.archivedAt || ''));
 
     const overdue = items.filter(it => urgency(it, today) === 3).length;
     const soon = items.filter(it => urgency(it, today) === 2).length;
@@ -61,10 +69,23 @@ export function render(root) {
                 : items.map(it => row(it, tags, today)).join('')}
         </div>
 
+        ${archived.length > 0 ? `
+            <section class="v1-archive ${archiveCollapsed ? 'is-collapsed' : ''}" data-section-id="${ARCHIVE_SECTION}">
+                <button type="button" class="v1-archive-header" data-action="toggle-archive">
+                    <span class="v1-archive-arrow">▼</span>
+                    <span class="v1-archive-title">📦 보관함</span>
+                    <span class="dday-tag-count">${archived.length}</span>
+                </button>
+                <div class="v1-archive-body">
+                    ${archived.map(it => archivedRow(it, tags, today)).join('')}
+                </div>
+            </section>
+        ` : ''}
+
         <div class="v1-footer">
             <span>지난 <strong>${overdue}</strong></span>
             <span>곧 다가옴 <strong>${soon}</strong></span>
-            <span>표시 ${items.length} / 전체 ${itemsAll.length}</span>
+            <span>표시 ${items.length} / 전체 ${itemsAll.length}${archived.length > 0 ? ` · 보관 ${archived.length}` : ''}</span>
         </div>
     `;
 
@@ -90,6 +111,10 @@ export function render(root) {
         btn.addEventListener('click', (e) => {
             e.stopPropagation();
             const action = btn.dataset.action;
+            if (action === 'toggle-archive') {
+                toggleCollapsed(ARCHIVE_SECTION);
+                return;
+            }
             const id = btn.dataset.itemId;
             const it = state.items.find(i => i.id === id);
             if (!it) return;
@@ -99,6 +124,12 @@ export function render(root) {
             } else if (action === 'delete') {
                 const prev = deleteItem(id);
                 showUndoToast(`${prev.name || '항목'} 삭제됨`, () => restoreItem(prev));
+            } else if (action === 'archive') {
+                const prev = archiveItem(id);
+                showUndoToast(`${prev.name || '항목'} 보관됨`, () => restoreItem(prev));
+            } else if (action === 'unarchive') {
+                const prev = unarchiveItem(id);
+                showUndoToast(`${prev.name || '항목'} 복원됨`, () => restoreItem(prev));
             }
         });
     });
@@ -143,6 +174,34 @@ function row(item, tags, today) {
             </div>
             <div class="v1-actions">
                 <button class="dday-btn icon" data-action="refresh" data-item-id="${item.id}" title="리프레시">↻</button>
+                <button class="dday-btn icon" data-action="archive" data-item-id="${item.id}" title="보관">📦</button>
+                <button class="dday-btn icon" data-action="delete" data-item-id="${item.id}" title="삭제">×</button>
+            </div>
+        </div>
+    `;
+}
+
+function archivedRow(item, tags, today) {
+    const tagChips = (item.tags || []).slice(0, 3).map(tid => {
+        const t = tags.find(x => x.id === tid);
+        if (!t) return '';
+        return `<span class="dday-tag" style="pointer-events:none;"><span class="dday-tag-dot" style="background:${t.color}"></span>${escapeHtml(t.label)}</span>`;
+    }).join('');
+
+    return `
+        <div class="dday-row v1-archived-row" data-item-id="${item.id}" role="button" tabindex="0">
+            <div class="v1-title">
+                <span class="dday-urgency-dot"></span>
+                <div class="v1-title-text">
+                    <strong>${escapeHtml(item.name)}</strong>
+                    <span class="dday-mono">${escapeHtml(item.lastDate)}</span>
+                </div>
+            </div>
+            <div class="v1-tags-inline">${tagChips || '<span class="dday-hint">—</span>'}</div>
+            <div class="dday-mono dday-hint">보관됨</div>
+            <div class="v1-track-wrap"><div class="v1-track-meta"><span class="dday-hint">${item.archivedAt ? escapeHtml(item.archivedAt.slice(0, 10)) : ''}</span></div></div>
+            <div class="v1-actions">
+                <button class="dday-btn icon" data-action="unarchive" data-item-id="${item.id}" title="복원">↺</button>
                 <button class="dday-btn icon" data-action="delete" data-item-id="${item.id}" title="삭제">×</button>
             </div>
         </div>

@@ -671,6 +671,42 @@ button, input, select, textarea {
     white-space: nowrap;
 }
 
+.v1-archive {
+    margin-top: var(--space-md);
+}
+.v1-archive-header {
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+    padding: 8px 4px;
+    cursor: pointer;
+    user-select: none;
+    background: transparent;
+    border: none;
+    color: var(--ink-subtle);
+    font-size: 13px;
+    font-weight: 500;
+    width: 100%;
+    text-align: left;
+}
+.v1-archive-header:hover { color: var(--ink); }
+.v1-archive-arrow {
+    display: inline-block;
+    transition: transform 120ms ease;
+    font-size: 10px;
+}
+.v1-archive.is-collapsed .v1-archive-arrow { transform: rotate(-90deg); }
+.v1-archive.is-collapsed .v1-archive-body { display: none; }
+.v1-archive-body {
+    background: var(--surface-1);
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+}
+.v1-archived-row { opacity: 0.7; }
+.v1-archived-row:hover { opacity: 1; }
+.v1-archived-row .v1-title-text strong { text-decoration: line-through; text-decoration-color: var(--ink-subtle); }
+
 /* ========================================================================
    V2 — Tag sections
    ======================================================================== */

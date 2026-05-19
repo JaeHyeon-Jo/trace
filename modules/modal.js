@@ -2,6 +2,7 @@
 // Uses .is-open toggle pattern + window click-outside (preserves legacy UX).
 import {
     state, getItem, addItem, updateItem, deleteItem, restoreItem,
+    archiveItem, unarchiveItem,
     addTag, updateTag, deleteTag, visibleTags,
 } from './state.js';
 import { escapeHtml, todayIso, TAG_COLOR_PALETTE } from './helpers.js';
@@ -94,6 +95,9 @@ export function openCrudModal(itemOrNull) {
 
                     <div class="dday-form-actions">
                         ${isEdit ? '<button type="button" class="dday-btn ghost danger" data-action="delete">삭제</button>' : ''}
+                        ${isEdit ? (item.archivedAt
+                            ? '<button type="button" class="dday-btn ghost" data-action="unarchive">↺ 복원</button>'
+                            : '<button type="button" class="dday-btn ghost" data-action="archive">📦 보관</button>') : ''}
                         <button type="button" class="dday-btn ghost" data-action="close">취소</button>
                         <button type="submit" class="dday-btn">${isEdit ? '저장' : '추가'}</button>
                     </div>
@@ -113,6 +117,22 @@ export function openCrudModal(itemOrNull) {
             close();
             showUndoToast(`${prev.name || '항목'} 삭제됨`, () => restoreItem(prev));
         });
+        const archiveBtn = modal.querySelector('[data-action="archive"]');
+        if (archiveBtn) {
+            archiveBtn.addEventListener('click', () => {
+                const prev = archiveItem(item.id);
+                close();
+                showUndoToast(`${prev.name || '항목'} 보관됨`, () => restoreItem(prev));
+            });
+        }
+        const unarchiveBtn = modal.querySelector('[data-action="unarchive"]');
+        if (unarchiveBtn) {
+            unarchiveBtn.addEventListener('click', () => {
+                const prev = unarchiveItem(item.id);
+                close();
+                showUndoToast(`${prev.name || '항목'} 복원됨`, () => restoreItem(prev));
+            });
+        }
     }
 
     // Tag picker toggles
@@ -253,7 +273,7 @@ function tagRowHtml(t) {
         <div class="dday-tag-row" data-tag-id="${t.id}">
             <button type="button" class="dday-color-swatch" data-action="color" style="background:${t.color}" aria-label="색상 변경"></button>
             <input class="dday-input" type="text" value="${escapeHtml(t.label)}" data-action="label">
-            <span class="dday-mono">${(state.items.filter(it => !it.deletedAt && (it.tags || []).includes(t.id))).length} 항목</span>
+            <span class="dday-mono">${(state.items.filter(it => !it.deletedAt && !it.archivedAt && (it.tags || []).includes(t.id))).length} 항목</span>
             <button type="button" class="dday-btn icon" data-action="delete" title="삭제">×</button>
         </div>
     `;
@@ -282,7 +302,7 @@ function wireTagListHandlers() {
         });
 
         delBtn.addEventListener('click', () => {
-            const count = state.items.filter(it => !it.deletedAt && (it.tags || []).includes(id)).length;
+            const count = state.items.filter(it => !it.deletedAt && !it.archivedAt && (it.tags || []).includes(id)).length;
             if (count > 0) {
                 if (!confirm(`이 태그는 ${count}개 항목에 사용 중입니다. 정말 삭제할까요? 해당 항목들에서 태그가 자동 제거됩니다.`)) return;
             }
