@@ -37,6 +37,10 @@ function migrate() {
         if (!out.id) { out.id = uid(); itemsChanged = true; }
         if (!out.updatedAt) { out.updatedAt = nowIso(); itemsChanged = true; }
         if (!Array.isArray(out.tags)) { out.tags = []; itemsChanged = true; }
+        if (!Array.isArray(out.history)) {
+            out.history = out.lastDate ? [out.lastDate] : [];
+            itemsChanged = true;
+        }
         return out;
     });
     if (itemsChanged) writeJson(KEY_ITEMS, migratedItems);

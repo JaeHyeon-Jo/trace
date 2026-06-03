@@ -425,7 +425,10 @@ function historyStats(history) {
 }
 
 function historySection(item) {
-    const stats = historyStats(item.history);
+    const history = (Array.isArray(item.history) && item.history.length > 0)
+        ? item.history
+        : (item.lastDate ? [item.lastDate] : []);
+    const stats = historyStats(history);
     if (!stats) return '';
 
     const setCycle = toCycleDays(item);
