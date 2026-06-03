@@ -5,7 +5,7 @@ import {
     archiveItem, unarchiveItem,
     addTag, updateTag, deleteTag, visibleTags,
 } from './state.js';
-import { escapeHtml, todayIso, TAG_COLOR_PALETTE } from './helpers.js';
+import { escapeHtml, todayIso, TAG_COLOR_PALETTE, parseDate, toCycleDays, DAY_MS } from './helpers.js';
 import { suggestCycleDays } from './ai.js';
 import { showUndoToast } from './toast.js';
 
@@ -93,6 +93,8 @@ export function openCrudModal(itemOrNull) {
                         </div>
                     </div>
 
+                    ${isEdit ? historySection(item) : ''}
+
                     <div class="dday-form-actions">
                         ${isEdit ? '<button type="button" class="dday-btn ghost danger" data-action="delete">삭제</button>' : ''}
                         ${isEdit ? (item.archivedAt
@@ -152,6 +154,17 @@ export function openCrudModal(itemOrNull) {
         if (suggested && hint) {
             hint.innerHTML = `과거 평균 간격 <strong>${suggested}일</strong>`;
         }
+    }
+
+    // Apply computed average to cycle inputs
+    const applyBtn = modal.querySelector('[data-action="apply-avg"]');
+    if (applyBtn) {
+        applyBtn.addEventListener('click', () => {
+            const avg = parseInt(applyBtn.dataset.avg, 10);
+            if (!avg) return;
+            document.getElementById('crudCycleNum').value = avg;
+            document.getElementById('crudCycleUnit').value = 'day';
+        });
     }
 
     const form = document.getElementById('crudForm');
@@ -392,6 +405,71 @@ export function openHelpModal() {
     const modal = document.getElementById('helpModal');
     attachOutsideClose(modal);
     modal.querySelectorAll('[data-action="close"]').forEach(b => b.addEventListener('click', close));
+}
+
+// --- History section --------------------------------------------------------
+
+function historyStats(history) {
+    if (!Array.isArray(history) || history.length < 1) return null;
+    const sorted = [...history].sort((a, b) => parseDate(a) - parseDate(b));
+    const gaps = [];
+    for (let i = 1; i < sorted.length; i++) {
+        const diff = Math.round((parseDate(sorted[i]) - parseDate(sorted[i - 1])) / DAY_MS);
+        gaps.push(diff);
+    }
+    const valid = gaps.filter(g => g > 0);
+    const avg = valid.length > 0 ? Math.round(valid.reduce((a, b) => a + b, 0) / valid.length) : null;
+    const minG = valid.length > 0 ? Math.min(...valid) : null;
+    const maxG = valid.length > 0 ? Math.max(...valid) : null;
+    return { sorted, gaps, avg, min: minG, max: maxG };
+}
+
+function historySection(item) {
+    const stats = historyStats(item.history);
+    if (!stats) return '';
+
+    const setCycle = toCycleDays(item);
+    const { sorted, gaps, avg, min, max } = stats;
+    // Descending display: most recent first
+    const rows = [];
+    for (let i = sorted.length - 1; i >= 0; i--) {
+        const date = sorted[i];
+        const gap = i > 0 ? gaps[i - 1] : null; // gap from previous entry to this one
+        rows.push(`
+            <li class="dday-history-row">
+                <span class="dday-mono">${escapeHtml(date)}</span>
+                <span class="dday-history-gap">${gap !== null ? `${gap}일 간격` : '<span class="dday-hint">최초 기록</span>'}</span>
+            </li>
+        `);
+    }
+
+    let avgLine = '';
+    if (avg !== null) {
+        let cmp = '';
+        let applyBtn = '';
+        if (setCycle) {
+            const diff = avg - setCycle;
+            if (diff === 0) cmp = ` · 설정 주기와 동일`;
+            else if (diff > 0) cmp = ` · 설정 주기보다 <strong>${diff}일 김</strong>`;
+            else cmp = ` · 설정 주기보다 <strong>${Math.abs(diff)}일 짧음</strong>`;
+            if (diff !== 0) applyBtn = ` <button type="button" class="dday-btn ghost dday-btn-mini" data-action="apply-avg" data-avg="${avg}">평균으로 적용</button>`;
+        } else {
+            applyBtn = ` <button type="button" class="dday-btn ghost dday-btn-mini" data-action="apply-avg" data-avg="${avg}">주기로 설정</button>`;
+        }
+        const rangeLine = (min !== null && max !== null && min !== max)
+            ? `<span class="dday-hint"> (최소 ${min}일 · 최대 ${max}일)</span>` : '';
+        avgLine = `<div class="dday-history-avg">평균 간격 <strong>${avg}일</strong>${rangeLine}${cmp}${applyBtn}</div>`;
+    } else if (sorted.length === 1) {
+        avgLine = `<div class="dday-hint">아직 평균 계산할 기록이 부족해요. 한 번 더 리프레시하면 평균이 나옵니다.</div>`;
+    }
+
+    return `
+        <div class="dday-form-row">
+            <label>기록 <span class="dday-mono dday-hint">(${sorted.length}회)</span></label>
+            ${avgLine}
+            <ul class="dday-history-list">${rows.join('')}</ul>
+        </div>
+    `;
 }
 
 // Notification toggle helper, exposed for topbar

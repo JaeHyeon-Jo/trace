@@ -115,6 +115,7 @@ button, input, select, textarea {
     border-color: transparent;
 }
 .dday-btn.icon:hover { background: var(--surface-2); color: var(--ink); }
+.dday-btn.dday-btn-mini { padding: 2px 8px; font-size: 11px; }
 .dday-btn.danger:hover { background: var(--danger); color: var(--on-primary); border-color: var(--danger); }
 .dday-btn[disabled] {
     opacity: 0.5;
@@ -511,6 +512,35 @@ button, input, select, textarea {
     gap: var(--space-xs);
     justify-content: flex-end;
     margin-top: var(--space-lg);
+}
+
+.dday-history-avg {
+    font-size: 13px;
+    color: var(--ink);
+    margin-bottom: 6px;
+}
+.dday-history-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    max-height: 180px;
+    overflow-y: auto;
+    border: 1px solid var(--hairline);
+    border-radius: var(--radius-md);
+    background: var(--surface-1);
+}
+.dday-history-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 10px;
+    font-size: 12px;
+    border-bottom: 1px solid var(--hairline);
+}
+.dday-history-row:last-child { border-bottom: none; }
+.dday-history-gap {
+    font-size: 11px;
+    color: var(--ink-subtle);
 }
 
 /* Tag manager modal */
