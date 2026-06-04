@@ -190,6 +190,40 @@ export function refreshItem(id, targetDate) {
     return prev;
 }
 
+// Latest date in an array of YYYY-MM-DD strings (lexicographic == chronological).
+function latestDate(dates) {
+    return dates.reduce((max, d) => (d > max ? d : max), dates[0]);
+}
+
+// Edit a single history entry by its index in the raw history array. lastDate is
+// kept in sync with the most recent remaining entry.
+export function updateHistoryEntry(id, index, newDate) {
+    const item = getItem(id);
+    if (!item || !Array.isArray(item.history)) return null;
+    if (index < 0 || index >= item.history.length || !newDate) return null;
+    item.history[index] = newDate;
+    item.lastDate = latestDate(item.history);
+    touch(item);
+    persistItems();
+    notify();
+    return item;
+}
+
+// Remove a single history entry by its raw index. Refuses to empty the history;
+// recomputes lastDate from the remaining entries.
+export function deleteHistoryEntry(id, index) {
+    const item = getItem(id);
+    if (!item || !Array.isArray(item.history)) return null;
+    if (index < 0 || index >= item.history.length) return null;
+    if (item.history.length <= 1) return null;
+    item.history.splice(index, 1);
+    item.lastDate = latestDate(item.history);
+    touch(item);
+    persistItems();
+    notify();
+    return item;
+}
+
 export function deleteItem(id) {
     const item = getItem(id);
     if (!item) return null;

@@ -531,6 +531,7 @@ button, input, select, textarea {
 }
 .dday-history-row {
     display: flex;
+    gap: 8px;
     justify-content: space-between;
     align-items: center;
     padding: 6px 10px;
@@ -538,7 +539,15 @@ button, input, select, textarea {
     border-bottom: 1px solid var(--hairline);
 }
 .dday-history-row:last-child { border-bottom: none; }
+.dday-history-date {
+    width: auto;
+    flex: 0 0 auto;
+    padding: 4px 8px;
+    font-size: 12px;
+}
 .dday-history-gap {
+    flex: 1 1 auto;
+    text-align: right;
     font-size: 11px;
     color: var(--ink-subtle);
 }

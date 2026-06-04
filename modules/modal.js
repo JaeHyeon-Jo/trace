@@ -2,7 +2,7 @@
 // Uses .is-open toggle pattern + window click-outside (preserves legacy UX).
 import {
     state, getItem, addItem, updateItem, deleteItem, restoreItem,
-    archiveItem, unarchiveItem,
+    archiveItem, unarchiveItem, updateHistoryEntry, deleteHistoryEntry,
     addTag, updateTag, deleteTag, visibleTags,
 } from './state.js';
 import { escapeHtml, todayIso, TAG_COLOR_PALETTE, parseDate, toCycleDays, DAY_MS } from './helpers.js';
@@ -93,7 +93,7 @@ export function openCrudModal(itemOrNull) {
                         </div>
                     </div>
 
-                    ${isEdit ? historySection(item) : ''}
+                    ${isEdit ? `<div id="crudHistory">${historySection(item)}</div>` : ''}
 
                     <div class="dday-form-actions">
                         ${isEdit ? '<button type="button" class="dday-btn ghost danger" data-action="delete">삭제</button>' : ''}
@@ -156,16 +156,8 @@ export function openCrudModal(itemOrNull) {
         }
     }
 
-    // Apply computed average to cycle inputs
-    const applyBtn = modal.querySelector('[data-action="apply-avg"]');
-    if (applyBtn) {
-        applyBtn.addEventListener('click', () => {
-            const avg = parseInt(applyBtn.dataset.avg, 10);
-            if (!avg) return;
-            document.getElementById('crudCycleNum').value = avg;
-            document.getElementById('crudCycleUnit').value = 'day';
-        });
-    }
+    // Editable history (date edit + delete) + apply-average button.
+    if (isEdit) wireHistoryHandlers(modal, item.id);
 
     const form = document.getElementById('crudForm');
     form.addEventListener('submit', (e) => {
@@ -367,7 +359,7 @@ export function openHelpModal() {
 
                 <section style="margin-bottom:24px;">
                     <h3 style="font-size:14px; margin:0 0 8px;">📝 항목 추가/수정</h3>
-                    <p style="font-size:13px; color:var(--ink-muted); line-height:1.55;">우상단 <strong>+ 새 항목</strong> 으로 추가, 행/카드 클릭으로 수정. 한 항목에 여러 태그를 붙일 수 있습니다.</p>
+                    <p style="font-size:13px; color:var(--ink-muted); line-height:1.55;">우상단 <strong>+ 새 항목</strong> 으로 추가, 행/카드 클릭으로 수정. 한 항목에 여러 태그를 붙일 수 있습니다. 수정 화면의 <strong>기록</strong> 목록에서 과거 날짜를 고치거나 삭제할 수 있어요.</p>
                 </section>
 
                 <section style="margin-bottom:24px;">
@@ -432,16 +424,22 @@ function historySection(item) {
     if (!stats) return '';
 
     const setCycle = toCycleDays(item);
-    const { sorted, gaps, avg, min, max } = stats;
+    const { gaps, avg, min, max } = stats;
+    // Pair each entry with its raw history index so edits/deletes target the
+    // correct record even after the display is sorted (and despite duplicates).
+    const indexed = history.map((date, idx) => ({ date, idx }));
+    indexed.sort((a, b) => parseDate(a.date) - parseDate(b.date));
+    const canDelete = indexed.length > 1;
     // Descending display: most recent first
     const rows = [];
-    for (let i = sorted.length - 1; i >= 0; i--) {
-        const date = sorted[i];
+    for (let i = indexed.length - 1; i >= 0; i--) {
+        const { date, idx } = indexed[i];
         const gap = i > 0 ? gaps[i - 1] : null; // gap from previous entry to this one
         rows.push(`
-            <li class="dday-history-row">
-                <span class="dday-mono">${escapeHtml(date)}</span>
+            <li class="dday-history-row" data-history-index="${idx}">
+                <input type="date" class="dday-input dday-history-date" data-action="edit-date" value="${escapeHtml(date)}" aria-label="기록 날짜">
                 <span class="dday-history-gap">${gap !== null ? `${gap}일 간격` : '<span class="dday-hint">최초 기록</span>'}</span>
+                ${canDelete ? '<button type="button" class="dday-btn icon" data-action="del-history" title="이 기록 삭제" aria-label="이 기록 삭제">×</button>' : ''}
             </li>
         `);
     }
@@ -462,17 +460,67 @@ function historySection(item) {
         const rangeLine = (min !== null && max !== null && min !== max)
             ? `<span class="dday-hint"> (최소 ${min}일 · 최대 ${max}일)</span>` : '';
         avgLine = `<div class="dday-history-avg">평균 간격 <strong>${avg}일</strong>${rangeLine}${cmp}${applyBtn}</div>`;
-    } else if (sorted.length === 1) {
+    } else if (indexed.length === 1) {
         avgLine = `<div class="dday-hint">아직 평균 계산할 기록이 부족해요. 한 번 더 리프레시하면 평균이 나옵니다.</div>`;
     }
 
     return `
         <div class="dday-form-row">
-            <label>기록 <span class="dday-mono dday-hint">(${sorted.length}회)</span></label>
+            <label>기록 <span class="dday-mono dday-hint">(${indexed.length}회)</span></label>
             ${avgLine}
             <ul class="dday-history-list">${rows.join('')}</ul>
         </div>
     `;
+}
+
+// Re-render just the history block of the open CRUD modal after an edit/delete,
+// keeping the top "마지막 날짜" field in sync with the recomputed lastDate.
+function renderHistoryInto(modal, itemId) {
+    const wrap = modal.querySelector('#crudHistory');
+    if (!wrap) return;
+    const item = getItem(itemId);
+    if (!item) return;
+    wrap.innerHTML = historySection(item);
+    const dateInput = modal.querySelector('#crudDate');
+    if (dateInput && item.lastDate) dateInput.value = item.lastDate;
+    wireHistoryHandlers(modal, itemId);
+}
+
+function wireHistoryHandlers(modal, itemId) {
+    const wrap = modal.querySelector('#crudHistory');
+    if (!wrap) return;
+
+    // Per-row date edit + delete.
+    wrap.querySelectorAll('.dday-history-row').forEach(row => {
+        const idx = parseInt(row.dataset.historyIndex, 10);
+        if (Number.isNaN(idx)) return;
+        const dateInput = row.querySelector('[data-action="edit-date"]');
+        const delBtn = row.querySelector('[data-action="del-history"]');
+        if (dateInput) {
+            dateInput.addEventListener('change', () => {
+                if (!dateInput.value) return;
+                updateHistoryEntry(itemId, idx, dateInput.value);
+                renderHistoryInto(modal, itemId);
+            });
+        }
+        if (delBtn) {
+            delBtn.addEventListener('click', () => {
+                deleteHistoryEntry(itemId, idx);
+                renderHistoryInto(modal, itemId);
+            });
+        }
+    });
+
+    // Apply computed average to the cycle inputs.
+    const applyBtn = wrap.querySelector('[data-action="apply-avg"]');
+    if (applyBtn) {
+        applyBtn.addEventListener('click', () => {
+            const avg = parseInt(applyBtn.dataset.avg, 10);
+            if (!avg) return;
+            document.getElementById('crudCycleNum').value = avg;
+            document.getElementById('crudCycleUnit').value = 'day';
+        });
+    }
 }
 
 // Notification toggle helper, exposed for topbar
