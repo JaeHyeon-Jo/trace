@@ -88,52 +88,62 @@ function tagsCol(uid) {
 }
 
 // Subscribe to cloud changes. Calls onUpdate(remoteActivities) on every snapshot.
-export function subscribeToCloud(uid, onUpdate) {
+export function subscribeToCloud(uid, onUpdate, onError) {
   return onSnapshot(activitiesCol(uid), (snap) => {
     const remote = snap.docs.map((d) => d.data());
     onUpdate(remote);
-  });
+  }, onError);
 }
 
 // Alias for new API used by modules/app.js — same as subscribeToCloud.
 export const subscribeItems = subscribeToCloud;
 
-export function subscribeTags(uid, onUpdate) {
+export function subscribeTags(uid, onUpdate, onError) {
   return onSnapshot(tagsCol(uid), (snap) => {
     const remote = snap.docs.map((d) => d.data());
     onUpdate(remote);
-  });
+  }, onError);
 }
 
-// Push the full local set in one batch. Cheap for this app's scale.
+// Firestore caps a WriteBatch at 500 operations — stay under it.
+const BATCH_LIMIT = 450;
+
+async function pushDocs(col, records) {
+  for (let i = 0; i < records.length; i += BATCH_LIMIT) {
+    const batch = writeBatch(db);
+    for (const rec of records.slice(i, i + BATCH_LIMIT)) {
+      batch.set(doc(col, rec.id), rec);
+    }
+    await batch.commit();
+  }
+}
+
+// Push the full local set in batches. Cheap for this app's scale.
 export async function pushToCloud(uid, activities) {
   if (!activities.length) return;
-  const batch = writeBatch(db);
-  for (const a of activities) {
-    batch.set(doc(activitiesCol(uid), a.id), a);
-  }
-  await batch.commit();
+  await pushDocs(activitiesCol(uid), activities);
 }
 
 export const pushItems = pushToCloud;
 
 export async function pushTags(uid, tags) {
   if (!tags || !tags.length) return;
-  const batch = writeBatch(db);
-  for (const t of tags) {
-    batch.set(doc(tagsCol(uid), t.id), t);
-  }
-  await batch.commit();
+  await pushDocs(tagsCol(uid), tags);
 }
 
 // Debounced push helpers — coalesce rapid local edits into one batch.
 const DEBOUNCE_MS = 300;
+// Takes (uid, getRecords) — records are read at flush time, not call time, so
+// a remote merge that lands during the debounce window can't be overwritten by
+// a stale snapshot of local state.
 function makeDebouncedPush(pushFn) {
   let timer = null;
   let pendingResolvers = [];
-  let lastArgs = null;
-  return function debouncedPush(...args) {
-    lastArgs = args;
+  let lastUid = null;
+  let lastGetRecords = null;
+  return function debouncedPush(uid, getRecords) {
+    lastUid = uid;
+    lastGetRecords = getRecords;
     return new Promise((resolve, reject) => {
       pendingResolvers.push({ resolve, reject });
       if (timer) clearTimeout(timer);
@@ -141,7 +151,7 @@ function makeDebouncedPush(pushFn) {
         const resolvers = pendingResolvers;
         pendingResolvers = [];
         timer = null;
-        pushFn(...lastArgs)
+        pushFn(lastUid, lastGetRecords())
           .then(() => resolvers.forEach(r => r.resolve()))
           .catch((err) => resolvers.forEach(r => r.reject(err)));
       }, DEBOUNCE_MS);
@@ -157,6 +167,12 @@ export async function pushActivity(uid, activity) {
   await setDoc(doc(activitiesCol(uid), activity.id), activity);
 }
 
+// Missing/invalid updatedAt sorts as epoch 0 so a timestamped record always wins.
+function toMillis(iso) {
+  const t = new Date(iso).getTime();
+  return Number.isNaN(t) ? 0 : t;
+}
+
 // LWW merge by id. Tombstones (deletedAt) are preserved during merge so they
 // can sync to other devices; the UI layer filters them out before rendering.
 function mergeByIdLWW(local, remote) {
@@ -164,7 +180,7 @@ function mergeByIdLWW(local, remote) {
   for (const a of local) map.set(a.id, a);
   for (const r of remote) {
     const l = map.get(r.id);
-    if (!l || new Date(r.updatedAt) > new Date(l.updatedAt)) {
+    if (!l || toMillis(r.updatedAt) > toMillis(l.updatedAt)) {
       map.set(r.id, r);
     }
   }
@@ -173,6 +189,18 @@ function mergeByIdLWW(local, remote) {
 
 export const mergeLWW = mergeByIdLWW;
 export const mergeTagsLWW = mergeByIdLWW;
+
+// Local records missing from remote or strictly newer than the remote copy —
+// the set that must be pushed back so the cloud converges to the LWW winner.
+// Echo-safe: after the push-back, the echoed snapshot carries equal
+// timestamps, so the next diff is empty and no loop forms.
+export function diffLocalNewer(local, remote) {
+  const remoteById = new Map(remote.map((r) => [r.id, r]));
+  return local.filter((l) => {
+    const r = remoteById.get(l.id);
+    return !r || toMillis(l.updatedAt) > toMillis(r.updatedAt);
+  });
+}
 
 // ---------------------------------------------------------------------------
 // Push notifications (FCM)

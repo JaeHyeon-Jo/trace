@@ -101,17 +101,19 @@ export async function start() {
     // Wire sync — push + subscribe
     if (sync) {
         configureSyncPush({
-            pushItems: (items) => {
+            // Records are read at flush time (getter) so a remote merge during
+            // the debounce window is never overwritten by stale local state.
+            pushItems: () => {
                 if (!state.user) return;
                 setSyncStatus('syncing');
-                sync.pushItemsDebounced(state.user.uid, items)
+                sync.pushItemsDebounced(state.user.uid, () => state.items)
                     .then(() => setSyncStatus('synced'))
                     .catch((err) => { console.error('cloud push items failed', err); setSyncStatus('error'); });
             },
-            pushTags: (tags) => {
+            pushTags: () => {
                 if (!state.user) return;
                 setSyncStatus('syncing');
-                sync.pushTagsDebounced(state.user.uid, tags)
+                sync.pushTagsDebounced(state.user.uid, () => state.tags)
                     .then(() => setSyncStatus('synced'))
                     .catch((err) => { console.error('cloud push tags failed', err); setSyncStatus('error'); });
             },
@@ -127,19 +129,32 @@ export async function start() {
             if (unsubTags) { unsubTags(); unsubTags = null; }
             if (user) {
                 setSyncStatus('syncing');
-                Promise.all([
-                    sync.pushItems(user.uid, state.items).catch(e => console.warn('initial items push failed', e)),
-                    sync.pushTags(user.uid, state.tags).catch(e => console.warn('initial tags push failed', e)),
-                ]).finally(() => {
-                    unsubItems = sync.subscribeItems(user.uid, (remote) => {
-                        applyRemoteItems(remote, sync.mergeLWW);
-                        setSyncStatus('synced');
-                    });
-                    unsubTags = sync.subscribeTags(user.uid, (remote) => {
-                        applyRemoteTags(remote, sync.mergeTagsLWW);
-                        setSyncStatus('synced');
-                    });
-                });
+                const onSyncError = (err) => {
+                    console.error('cloud subscribe failed', err);
+                    setSyncStatus('error');
+                };
+                // No blind upload on sign-in: merge each snapshot first, then
+                // push back only records that are local-only or locally newer.
+                // The first snapshot uploads pre-sign-in local data; later ones
+                // self-heal a cloud that regressed to stale versions.
+                unsubItems = sync.subscribeItems(user.uid, (remote) => {
+                    applyRemoteItems(remote, sync.mergeLWW);
+                    const newer = sync.diffLocalNewer(state.items, remote);
+                    if (newer.length) {
+                        sync.pushItems(user.uid, newer)
+                            .catch(e => console.warn('items push-back failed', e));
+                    }
+                    setSyncStatus('synced');
+                }, onSyncError);
+                unsubTags = sync.subscribeTags(user.uid, (remote) => {
+                    applyRemoteTags(remote, sync.mergeTagsLWW);
+                    const newer = sync.diffLocalNewer(state.tags, remote);
+                    if (newer.length) {
+                        sync.pushTags(user.uid, newer)
+                            .catch(e => console.warn('tags push-back failed', e));
+                    }
+                    setSyncStatus('synced');
+                }, onSyncError);
             } else {
                 setSyncStatus('offline');
             }
