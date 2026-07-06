@@ -25,7 +25,9 @@ export function parseDate(iso) {
 }
 
 export function todayIso() {
-    return new Date().toISOString().substring(0, 10);
+    // Local calendar date — toISOString() would give the UTC date, which is
+    // still "yesterday" between midnight and 09:00 KST.
+    return formatDate(new Date());
 }
 
 export function startOfDay(d) {
@@ -121,7 +123,9 @@ export function formatCycleDisplay(cycleNum, cycleUnit) {
 }
 
 export function formatDate(d) {
-    return d.toISOString().substring(0, 10);
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${d.getFullYear()}-${m}-${day}`;
 }
 
 // ----- Small utilities -----

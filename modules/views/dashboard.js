@@ -4,7 +4,7 @@ import {
 } from '../state.js';
 import {
     escapeHtml, formatHeroDate, urgency, daysUntilNext, nextDueDate,
-    formatShortDate, urgencyClass, formatDPlus, parseDate,
+    formatShortDate, urgencyClass, formatDPlus, parseDate, formatDate,
 } from '../helpers.js';
 import { openCrudModal } from '../modal.js';
 
@@ -139,7 +139,7 @@ function upcomingRow(item, today, tags) {
                 <strong>${escapeHtml(item.name)}</strong>
                 ${tagDots}
             </div>
-            <span class="dday-mono">${due ? formatShortDate(due.toISOString().slice(0,10)) : ''}</span>
+            <span class="dday-mono">${due ? formatShortDate(formatDate(due)) : ''}</span>
             <span class="v5-upcoming-when ${cls}">${u <= 0 ? `${Math.abs(u)}일 지남` : `${u}일 남음`}</span>
         </div>
     `;
